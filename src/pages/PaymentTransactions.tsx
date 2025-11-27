@@ -13,7 +13,6 @@ interface PaymentTransaction {
   date: string;
   time: string;
   status: 'Completed' | 'Pending';
-  paymentMethod: 'At Clinic' | 'Online Payment (GCash)' | 'Online Payment (PayMaya)';
   appointment: Appointment;
   confirmationDate: string;
   confirmationTime: string;
@@ -24,124 +23,67 @@ export function PaymentTransactions() {
   const { services } = useServiceStore();
   
   const [dateRangeFilter, setDateRangeFilter] = useState<string>('today');
-  const [paymentMethodFilter, setPaymentMethodFilter] = useState<string>('all');
   const [amountRangeFilter, setAmountRangeFilter] = useState<string>('all');
 
-  // Generate transactions from confirmed payments
+  // Generate transactions - one transaction per appointment showing full price
   const generateTransactions = useMemo((): PaymentTransaction[] => {
-    const transactions: PaymentTransaction[] = [];
+    const transactionMap = new Map<string, PaymentTransaction>();
 
     appointments.forEach((apt: Appointment) => {
       if (!apt.price || apt.price <= 0) return;
       if (!apt.status || apt.status !== 'approved') return;
+      
+      // Only show transactions for completed payments
+      if (apt.paymentStatus !== 'fully_paid' && apt.paymentStatus !== 'down_payment_paid') return;
 
       const paymentData = apt.paymentData || {};
       const service = services.find(s => s.id === apt.serviceType);
       const serviceName = service?.name || 'Unknown Service';
       
       // Generate transaction ID (formatted)
-      const generateTransactionId = (aptId: string, suffix: string = '') => {
+      const generateTransactionId = (aptId: string) => {
         const shortId = aptId.slice(-8).toUpperCase();
-        return `TXN-${shortId}${suffix ? `-${suffix}` : ''}`;
+        return `TXN-${shortId}`;
       };
 
-      // Determine payment method
-      let paymentMethod: 'At Clinic' | 'Online Payment (GCash)' | 'Online Payment (PayMaya)' = 'At Clinic';
-      const method = paymentData.method;
-      if (method === 'gcash') {
-        paymentMethod = 'Online Payment (GCash)';
-      } else if (method === 'paymaya') {
-        paymentMethod = 'Online Payment (PayMaya)';
-      }
-
-      const depositAmount = Math.round((apt.price || 0) * 0.3);
-      const remainingAmount = (apt.price || 0) - depositAmount;
-
-      // Check for deposit confirmation by staff
-      if (paymentData.depositConfirmedAt) {
-        const confirmDate = new Date(paymentData.depositConfirmedAt);
-        transactions.push({
-          id: `${apt.id}-deposit`,
-          transactionId: generateTransactionId(apt.id, 'DEP'),
-          customerName: apt.ownerName,
-          service: serviceName,
-          amount: depositAmount,
-          date: confirmDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-          time: confirmDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-          status: 'Completed',
-          paymentMethod: 'At Clinic',
-          appointment: apt,
-          confirmationDate: confirmDate.toISOString().split('T')[0],
-          confirmationTime: confirmDate.toISOString().split('T')[1]?.split('.')[0] || '',
-        });
-      }
-
-      // Check for full payment confirmation by staff
-      if (paymentData.fullPaymentConfirmedAt) {
-        const confirmDate = new Date(paymentData.fullPaymentConfirmedAt);
-        // Only add if no deposit was confirmed separately (full payment at once)
-        if (!paymentData.depositConfirmedAt || paymentData.method === 'at_clinic') {
-          transactions.push({
-            id: `${apt.id}-full`,
-            transactionId: generateTransactionId(apt.id, 'FULL'),
-            customerName: apt.ownerName,
-            service: serviceName,
-            amount: apt.price || 0,
-            date: confirmDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-            time: confirmDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-            status: 'Completed',
-            paymentMethod: 'At Clinic',
-            appointment: apt,
-            confirmationDate: confirmDate.toISOString().split('T')[0],
-            confirmationTime: confirmDate.toISOString().split('T')[1]?.split('.')[0] || '',
-          });
-        }
-      }
-
-      // Check for remaining balance confirmation by staff
+      // Use the most recent confirmation date for the transaction
+      let confirmationDate: Date | null = null;
+      let confirmationTime: string = apt.time;
+      
+      // Prioritize: remainingBalanceConfirmedAt > fullPaymentConfirmedAt > depositConfirmedAt > appointment date
       if (paymentData.remainingBalanceConfirmedAt) {
-        const confirmDate = new Date(paymentData.remainingBalanceConfirmedAt);
-        transactions.push({
-          id: `${apt.id}-remaining`,
-          transactionId: generateTransactionId(apt.id, 'REM'),
-          customerName: apt.ownerName,
-          service: serviceName,
-          amount: remainingAmount,
-          date: confirmDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-          time: confirmDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-          status: 'Completed',
-          paymentMethod: 'At Clinic',
-          appointment: apt,
-          confirmationDate: confirmDate.toISOString().split('T')[0],
-          confirmationTime: confirmDate.toISOString().split('T')[1]?.split('.')[0] || '',
-        });
+        confirmationDate = new Date(paymentData.remainingBalanceConfirmedAt);
+        confirmationTime = confirmationDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      } else if (paymentData.fullPaymentConfirmedAt) {
+        confirmationDate = new Date(paymentData.fullPaymentConfirmedAt);
+        confirmationTime = confirmationDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      } else if (paymentData.depositConfirmedAt) {
+        confirmationDate = new Date(paymentData.depositConfirmedAt);
+        confirmationTime = confirmationDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      } else {
+        confirmationDate = new Date(apt.date);
       }
 
-      // Include online payments that are already completed (not confirmed by staff)
-      if ((apt.paymentStatus === 'fully_paid' || apt.paymentStatus === 'down_payment_paid') &&
-          !paymentData.depositConfirmedAt && 
-          !paymentData.fullPaymentConfirmedAt && 
-          !paymentData.remainingBalanceConfirmedAt &&
-          (method === 'online' || method === 'gcash' || method === 'paymaya')) {
-        const amount = apt.paymentStatus === 'fully_paid' ? (apt.price || 0) : depositAmount;
-        transactions.push({
-          id: `${apt.id}-online`,
-          transactionId: generateTransactionId(apt.id, 'ONL'),
-          customerName: apt.ownerName,
-          service: serviceName,
-          amount: amount,
-          date: new Date(apt.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-          time: apt.time,
-          status: 'Completed',
-          paymentMethod: paymentMethod,
-          appointment: apt,
-          confirmationDate: apt.date,
-          confirmationTime: apt.time,
-        });
-      }
+      // Create or update transaction - always use full price
+      const transactionId = generateTransactionId(apt.id);
+      const dateStr = confirmationDate.toISOString().split('T')[0];
+      
+      transactionMap.set(apt.id, {
+        id: apt.id,
+        transactionId: transactionId,
+        customerName: apt.ownerName,
+        service: serviceName,
+        amount: apt.price || 0, // Always full price
+        date: confirmationDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+        time: confirmationTime,
+        status: apt.paymentStatus === 'fully_paid' ? 'Completed' : 'Pending',
+        appointment: apt,
+        confirmationDate: dateStr,
+        confirmationTime: confirmationTime,
+      });
     });
 
-    return transactions.sort((a, b) => {
+    return Array.from(transactionMap.values()).sort((a, b) => {
       const dateA = new Date(a.confirmationDate + 'T' + (a.confirmationTime || '00:00:00')).getTime();
       const dateB = new Date(b.confirmationDate + 'T' + (b.confirmationTime || '00:00:00')).getTime();
       return dateB - dateA; // Newest first
@@ -188,11 +130,6 @@ export function PaymentTransactions() {
       }
     }
 
-    // Filter by payment method
-    if (paymentMethodFilter !== 'all') {
-      filtered = filtered.filter(txn => txn.paymentMethod === paymentMethodFilter);
-    }
-
     // Filter by amount range
     if (amountRangeFilter !== 'all') {
       if (amountRangeFilter === 'low') {
@@ -205,17 +142,16 @@ export function PaymentTransactions() {
     }
 
     return filtered;
-  }, [generateTransactions, dateRangeFilter, paymentMethodFilter, amountRangeFilter]);
+  }, [generateTransactions, dateRangeFilter, amountRangeFilter]);
 
   const handleReset = () => {
     setDateRangeFilter('all');
-    setPaymentMethodFilter('all');
     setAmountRangeFilter('all');
   };
 
   const handleExport = () => {
     const csvData = [
-      ['Transaction ID', 'Customer', 'Service', 'Amount', 'Date & Time', 'Status', 'Payment Method'],
+      ['Transaction ID', 'Customer', 'Service', 'Amount', 'Date & Time', 'Status'],
       ...filteredTransactions.map(txn => [
         txn.transactionId,
         txn.customerName,
@@ -223,7 +159,6 @@ export function PaymentTransactions() {
         `₱${txn.amount.toLocaleString()}`,
         `${txn.date} ${txn.time}`,
         txn.status,
-        txn.paymentMethod,
       ])
     ];
     
@@ -260,7 +195,7 @@ export function PaymentTransactions() {
           <Filter className="h-5 w-5" />
           Filter Transactions
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Date Range</label>
             <select
@@ -274,20 +209,6 @@ export function PaymentTransactions() {
               <option value="thisWeek">This Week</option>
               <option value="thisMonth">This Month</option>
               <option value="lastMonth">Last Month</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
-            <select
-              value={paymentMethodFilter}
-              onChange={(e) => setPaymentMethodFilter(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="all">All Methods</option>
-              <option value="At Clinic">At Clinic</option>
-              <option value="Online Payment (GCash)">Online Payment (GCash)</option>
-              <option value="Online Payment (PayMaya)">Online Payment (PayMaya)</option>
             </select>
           </div>
 
@@ -349,9 +270,6 @@ export function PaymentTransactions() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Payment Method
-                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -381,9 +299,6 @@ export function PaymentTransactions() {
                       }`}>
                         {txn.status}
                       </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-900">{txn.paymentMethod}</span>
                     </td>
                   </tr>
                 ))}
