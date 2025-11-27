@@ -1,0 +1,397 @@
+import { useState, useMemo } from 'react';
+import { CreditCard, Filter, Download, Calendar } from 'lucide-react';
+import { useAppointmentStore } from '../stores/appointmentStore';
+import { useServiceStore } from '../stores/serviceStore';
+import type { Appointment } from '../types';
+
+interface PaymentTransaction {
+  id: string;
+  transactionId: string;
+  customerName: string;
+  service: string;
+  amount: number;
+  date: string;
+  time: string;
+  status: 'Completed' | 'Pending';
+  paymentMethod: 'At Clinic' | 'Online Payment (GCash)' | 'Online Payment (PayMaya)';
+  appointment: Appointment;
+  confirmationDate: string;
+  confirmationTime: string;
+}
+
+export function PaymentTransactions() {
+  const { appointments } = useAppointmentStore();
+  const { services } = useServiceStore();
+  
+  const [dateRangeFilter, setDateRangeFilter] = useState<string>('today');
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState<string>('all');
+  const [amountRangeFilter, setAmountRangeFilter] = useState<string>('all');
+
+  // Generate transactions from confirmed payments
+  const generateTransactions = useMemo((): PaymentTransaction[] => {
+    const transactions: PaymentTransaction[] = [];
+
+    appointments.forEach((apt: Appointment) => {
+      if (!apt.price || apt.price <= 0) return;
+      if (!apt.status || apt.status !== 'approved') return;
+
+      const paymentData = apt.paymentData || {};
+      const service = services.find(s => s.id === apt.serviceType);
+      const serviceName = service?.name || 'Unknown Service';
+      
+      // Generate transaction ID (formatted)
+      const generateTransactionId = (aptId: string, suffix: string = '') => {
+        const shortId = aptId.slice(-8).toUpperCase();
+        return `TXN-${shortId}${suffix ? `-${suffix}` : ''}`;
+      };
+
+      // Determine payment method
+      let paymentMethod: 'At Clinic' | 'Online Payment (GCash)' | 'Online Payment (PayMaya)' = 'At Clinic';
+      const method = paymentData.method;
+      if (method === 'gcash') {
+        paymentMethod = 'Online Payment (GCash)';
+      } else if (method === 'paymaya') {
+        paymentMethod = 'Online Payment (PayMaya)';
+      }
+
+      const depositAmount = Math.round((apt.price || 0) * 0.3);
+      const remainingAmount = (apt.price || 0) - depositAmount;
+
+      // Check for deposit confirmation by staff
+      if (paymentData.depositConfirmedAt) {
+        const confirmDate = new Date(paymentData.depositConfirmedAt);
+        transactions.push({
+          id: `${apt.id}-deposit`,
+          transactionId: generateTransactionId(apt.id, 'DEP'),
+          customerName: apt.ownerName,
+          service: serviceName,
+          amount: depositAmount,
+          date: confirmDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+          time: confirmDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+          status: 'Completed',
+          paymentMethod: 'At Clinic',
+          appointment: apt,
+          confirmationDate: confirmDate.toISOString().split('T')[0],
+          confirmationTime: confirmDate.toISOString().split('T')[1]?.split('.')[0] || '',
+        });
+      }
+
+      // Check for full payment confirmation by staff
+      if (paymentData.fullPaymentConfirmedAt) {
+        const confirmDate = new Date(paymentData.fullPaymentConfirmedAt);
+        // Only add if no deposit was confirmed separately (full payment at once)
+        if (!paymentData.depositConfirmedAt || paymentData.method === 'at_clinic') {
+          transactions.push({
+            id: `${apt.id}-full`,
+            transactionId: generateTransactionId(apt.id, 'FULL'),
+            customerName: apt.ownerName,
+            service: serviceName,
+            amount: apt.price || 0,
+            date: confirmDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+            time: confirmDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            status: 'Completed',
+            paymentMethod: 'At Clinic',
+            appointment: apt,
+            confirmationDate: confirmDate.toISOString().split('T')[0],
+            confirmationTime: confirmDate.toISOString().split('T')[1]?.split('.')[0] || '',
+          });
+        }
+      }
+
+      // Check for remaining balance confirmation by staff
+      if (paymentData.remainingBalanceConfirmedAt) {
+        const confirmDate = new Date(paymentData.remainingBalanceConfirmedAt);
+        transactions.push({
+          id: `${apt.id}-remaining`,
+          transactionId: generateTransactionId(apt.id, 'REM'),
+          customerName: apt.ownerName,
+          service: serviceName,
+          amount: remainingAmount,
+          date: confirmDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+          time: confirmDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+          status: 'Completed',
+          paymentMethod: 'At Clinic',
+          appointment: apt,
+          confirmationDate: confirmDate.toISOString().split('T')[0],
+          confirmationTime: confirmDate.toISOString().split('T')[1]?.split('.')[0] || '',
+        });
+      }
+
+      // Include online payments that are already completed (not confirmed by staff)
+      if ((apt.paymentStatus === 'fully_paid' || apt.paymentStatus === 'down_payment_paid') &&
+          !paymentData.depositConfirmedAt && 
+          !paymentData.fullPaymentConfirmedAt && 
+          !paymentData.remainingBalanceConfirmedAt &&
+          (method === 'online' || method === 'gcash' || method === 'paymaya')) {
+        const amount = apt.paymentStatus === 'fully_paid' ? (apt.price || 0) : depositAmount;
+        transactions.push({
+          id: `${apt.id}-online`,
+          transactionId: generateTransactionId(apt.id, 'ONL'),
+          customerName: apt.ownerName,
+          service: serviceName,
+          amount: amount,
+          date: new Date(apt.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+          time: apt.time,
+          status: 'Completed',
+          paymentMethod: paymentMethod,
+          appointment: apt,
+          confirmationDate: apt.date,
+          confirmationTime: apt.time,
+        });
+      }
+    });
+
+    return transactions.sort((a, b) => {
+      const dateA = new Date(a.confirmationDate + 'T' + (a.confirmationTime || '00:00:00')).getTime();
+      const dateB = new Date(b.confirmationDate + 'T' + (b.confirmationTime || '00:00:00')).getTime();
+      return dateB - dateA; // Newest first
+    });
+  }, [appointments, services]);
+
+  // Filter transactions
+  const filteredTransactions = useMemo(() => {
+    let filtered = [...generateTransactions];
+
+    // Filter by date range
+    if (dateRangeFilter !== 'all') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (dateRangeFilter === 'today') {
+        const todayStr = today.toISOString().split('T')[0];
+        filtered = filtered.filter(txn => txn.confirmationDate === todayStr);
+      } else if (dateRangeFilter === 'yesterday') {
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
+        filtered = filtered.filter(txn => txn.confirmationDate === yesterdayStr);
+      } else if (dateRangeFilter === 'thisWeek') {
+        const weekStart = new Date(today);
+        weekStart.setDate(today.getDate() - today.getDay());
+        filtered = filtered.filter(txn => {
+          const txnDate = new Date(txn.confirmationDate);
+          return txnDate >= weekStart && txnDate <= today;
+        });
+      } else if (dateRangeFilter === 'thisMonth') {
+        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        filtered = filtered.filter(txn => {
+          const txnDate = new Date(txn.confirmationDate);
+          return txnDate >= monthStart && txnDate <= today;
+        });
+      } else if (dateRangeFilter === 'lastMonth') {
+        const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+        filtered = filtered.filter(txn => {
+          const txnDate = new Date(txn.confirmationDate);
+          return txnDate >= lastMonthStart && txnDate <= lastMonthEnd;
+        });
+      }
+    }
+
+    // Filter by payment method
+    if (paymentMethodFilter !== 'all') {
+      filtered = filtered.filter(txn => txn.paymentMethod === paymentMethodFilter);
+    }
+
+    // Filter by amount range
+    if (amountRangeFilter !== 'all') {
+      if (amountRangeFilter === 'low') {
+        filtered = filtered.filter(txn => txn.amount < 1000);
+      } else if (amountRangeFilter === 'medium') {
+        filtered = filtered.filter(txn => txn.amount >= 1000 && txn.amount < 5000);
+      } else if (amountRangeFilter === 'high') {
+        filtered = filtered.filter(txn => txn.amount >= 5000);
+      }
+    }
+
+    return filtered;
+  }, [generateTransactions, dateRangeFilter, paymentMethodFilter, amountRangeFilter]);
+
+  const handleReset = () => {
+    setDateRangeFilter('all');
+    setPaymentMethodFilter('all');
+    setAmountRangeFilter('all');
+  };
+
+  const handleExport = () => {
+    const csvData = [
+      ['Transaction ID', 'Customer', 'Service', 'Amount', 'Date & Time', 'Status', 'Payment Method'],
+      ...filteredTransactions.map(txn => [
+        txn.transactionId,
+        txn.customerName,
+        txn.service,
+        `₱${txn.amount.toLocaleString()}`,
+        `${txn.date} ${txn.time}`,
+        txn.status,
+        txn.paymentMethod,
+      ])
+    ];
+    
+    const csvContent = csvData.map(row => row.join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `payment-transactions-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Payment Transactions</h1>
+          <p className="text-gray-600 mt-2">Manage and track all payment transactions</p>
+        </div>
+        <button
+          onClick={handleExport}
+          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          <Download className="h-4 w-4" />
+          Export CSV
+        </button>
+      </div>
+
+      {/* Filter Section */}
+      <div className="bg-white rounded-lg p-6 shadow-sm border">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <Filter className="h-5 w-5" />
+          Filter Transactions
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Date Range</label>
+            <select
+              value={dateRangeFilter}
+              onChange={(e) => setDateRangeFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="all">All Dates</option>
+              <option value="today">Today</option>
+              <option value="yesterday">Yesterday</option>
+              <option value="thisWeek">This Week</option>
+              <option value="thisMonth">This Month</option>
+              <option value="lastMonth">Last Month</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
+            <select
+              value={paymentMethodFilter}
+              onChange={(e) => setPaymentMethodFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="all">All Methods</option>
+              <option value="At Clinic">At Clinic</option>
+              <option value="Online Payment (GCash)">Online Payment (GCash)</option>
+              <option value="Online Payment (PayMaya)">Online Payment (PayMaya)</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Amount Range</label>
+            <select
+              value={amountRangeFilter}
+              onChange={(e) => setAmountRangeFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="all">All Amounts</option>
+              <option value="low">Under ₱1,000</option>
+              <option value="medium">₱1,000 - ₱5,000</option>
+              <option value="high">₱5,000 and above</option>
+            </select>
+          </div>
+        </div>
+        <div className="flex gap-3 mt-4">
+          <button
+            onClick={handleReset}
+            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Reset
+          </button>
+        </div>
+      </div>
+
+      {/* Transactions Table */}
+      <div className="bg-white rounded-lg shadow-sm border">
+        <div className="p-6 border-b">
+          <h2 className="text-lg font-semibold text-gray-900">Recent Transactions</h2>
+        </div>
+        <div className="overflow-x-auto">
+          {filteredTransactions.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <CreditCard className="h-16 w-16 mx-auto mb-4 opacity-50" />
+              <p className="text-lg">No transactions found</p>
+              <p className="text-sm mt-2">Try adjusting your filters</p>
+            </div>
+          ) : (
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Transaction ID
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Customer
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Service
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Amount
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date & Time
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Payment Method
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredTransactions.map((txn) => (
+                  <tr key={txn.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm font-medium text-gray-900">{txn.transactionId}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm text-gray-900">{txn.customerName}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm text-gray-900">{txn.service}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm font-semibold text-gray-900">₱{txn.amount.toLocaleString()}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{txn.date}</div>
+                      <div className="text-xs text-gray-500">{txn.time}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                        txn.status === 'Completed'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {txn.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm text-gray-900">{txn.paymentMethod}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
