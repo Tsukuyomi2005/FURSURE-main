@@ -22,21 +22,29 @@ export function PaymentTransactions() {
   const { appointments } = useAppointmentStore();
   const { services } = useServiceStore();
   
-  const [dateRangeFilter, setDateRangeFilter] = useState<string>('today');
+  const [dateRangeFilter, setDateRangeFilter] = useState<string>('all');
   const [amountRangeFilter, setAmountRangeFilter] = useState<string>('all');
 
-  // Generate transactions - one transaction per appointment showing full price
+  // Generate transactions - only show completed (fully paid) appointments with full price
   const generateTransactions = useMemo((): PaymentTransaction[] => {
     const transactionMap = new Map<string, PaymentTransaction>();
 
     appointments.forEach((apt: Appointment) => {
+      // Only show completed appointments (fully paid)
       if (!apt.price || apt.price <= 0) return;
       if (!apt.status || apt.status !== 'approved') return;
       
-      // Only show transactions for completed payments
-      if (apt.paymentStatus !== 'fully_paid' && apt.paymentStatus !== 'down_payment_paid') return;
-
       const paymentData = apt.paymentData || {};
+      
+      // An appointment is considered completed/fully paid if:
+      // 1. paymentStatus is 'fully_paid', OR
+      // 2. There's a fullPaymentConfirmedAt or remainingBalanceConfirmedAt (staff confirmed full payment)
+      const isFullyPaid = apt.paymentStatus === 'fully_paid' || 
+                         paymentData.fullPaymentConfirmedAt || 
+                         paymentData.remainingBalanceConfirmedAt;
+      
+      if (!isFullyPaid) return; // Only show fully paid/completed appointments
+
       const service = services.find(s => s.id === apt.serviceType);
       const serviceName = service?.name || 'Unknown Service';
       
@@ -47,24 +55,26 @@ export function PaymentTransactions() {
       };
 
       // Use the most recent confirmation date for the transaction
+      // For fully paid appointments, prioritize the date when the final payment was confirmed
       let confirmationDate: Date | null = null;
       let confirmationTime: string = apt.time;
       
-      // Prioritize: remainingBalanceConfirmedAt > fullPaymentConfirmedAt > depositConfirmedAt > appointment date
+      // Prioritize: remainingBalanceConfirmedAt > fullPaymentConfirmedAt > appointment date
+      // remainingBalanceConfirmedAt means the final payment was made (after deposit)
+      // fullPaymentConfirmedAt means the full payment was confirmed at once
       if (paymentData.remainingBalanceConfirmedAt) {
         confirmationDate = new Date(paymentData.remainingBalanceConfirmedAt);
         confirmationTime = confirmationDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
       } else if (paymentData.fullPaymentConfirmedAt) {
         confirmationDate = new Date(paymentData.fullPaymentConfirmedAt);
         confirmationTime = confirmationDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-      } else if (paymentData.depositConfirmedAt) {
-        confirmationDate = new Date(paymentData.depositConfirmedAt);
-        confirmationTime = confirmationDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
       } else {
+        // For fully paid appointments without explicit confirmation dates (e.g., online payments),
+        // use the appointment date as the transaction date
         confirmationDate = new Date(apt.date);
       }
 
-      // Create or update transaction - always use full price
+      // Create transaction - always use full price of the service
       const transactionId = generateTransactionId(apt.id);
       const dateStr = confirmationDate.toISOString().split('T')[0];
       
@@ -73,10 +83,10 @@ export function PaymentTransactions() {
         transactionId: transactionId,
         customerName: apt.ownerName,
         service: serviceName,
-        amount: apt.price || 0, // Always full price
+        amount: apt.price || 0, // Full price of the service
         date: confirmationDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
         time: confirmationTime,
-        status: apt.paymentStatus === 'fully_paid' ? 'Completed' : 'Pending',
+        status: 'Completed', // All transactions here are completed (fully paid)
         appointment: apt,
         confirmationDate: dateStr,
         confirmationTime: confirmationTime,
