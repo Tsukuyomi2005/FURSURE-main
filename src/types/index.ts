@@ -5,6 +5,8 @@ export interface InventoryItem {
   stock: number;
   price: number;
   expiryDate: string;
+  reorderPoint?: number;
+  targetLevel?: number;
 }
 
 export interface Appointment {

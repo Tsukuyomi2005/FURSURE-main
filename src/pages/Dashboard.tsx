@@ -128,69 +128,48 @@ export function Dashboard() {
     .slice(0, 10); // Limit to 10 most recent
 
   // Calculate monthly revenue for the current year (Jan-Dec) based on payment confirmation dates
+  // This matches PaymentTransactions logic: count FULL price per completed appointment
   const currentYear = new Date().getFullYear();
   const monthlyRevenueData = Array.from({ length: 12 }, (_, monthIndex) => {
     const monthName = new Date(2000, monthIndex, 1).toLocaleDateString('en-US', { month: 'short' });
     
-    // Calculate revenue from confirmed payments in this month
-    // Use the same logic as Reports and PaymentTransactions - based on confirmation dates
+    // Calculate revenue from completed appointments in this month
+    // Match PaymentTransactions: only count fully paid/completed appointments with full price
     const monthRevenue = appointments.reduce((sum, apt) => {
       if (!apt.price || apt.price <= 0) return sum;
       if (apt.status !== 'approved') return sum;
       
       const paymentData = apt.paymentData || {};
-      const depositAmount = Math.round(apt.price * 0.3);
-      const remainingAmount = apt.price - depositAmount;
       
-      let monthRevenueForApt = 0;
+      // An appointment is considered completed/fully paid if:
+      // 1. paymentStatus is 'fully_paid', OR
+      // 2. There's a fullPaymentConfirmedAt or remainingBalanceConfirmedAt (staff confirmed full payment)
+      const isFullyPaid = apt.paymentStatus === 'fully_paid' || 
+                         paymentData.fullPaymentConfirmedAt || 
+                         paymentData.remainingBalanceConfirmedAt;
       
-      // Check deposit confirmation date
-      if (paymentData.depositConfirmedAt) {
-        const depositDate = new Date(paymentData.depositConfirmedAt);
-        if (depositDate.getFullYear() === currentYear && depositDate.getMonth() === monthIndex) {
-          monthRevenueForApt += depositAmount;
-        }
-      }
+      if (!isFullyPaid) return sum; // Only count fully paid/completed appointments
       
-      // Check full payment confirmation date
-      if (paymentData.fullPaymentConfirmedAt) {
-        const fullPaymentDate = new Date(paymentData.fullPaymentConfirmedAt);
-        if (fullPaymentDate.getFullYear() === currentYear && fullPaymentDate.getMonth() === monthIndex) {
-          // Only count if it's a full payment (not split with deposit)
-          if (!paymentData.depositConfirmedAt || paymentData.method === 'at_clinic') {
-            monthRevenueForApt += apt.price;
-          }
-        }
-      }
+      // Determine the confirmation date (when the appointment was fully completed)
+      // This matches PaymentTransactions logic exactly
+      let confirmationDate: Date | null = null;
       
-      // Check remaining balance confirmation date
+      // Prioritize: remainingBalanceConfirmedAt > fullPaymentConfirmedAt > appointment date
       if (paymentData.remainingBalanceConfirmedAt) {
-        const remainingDate = new Date(paymentData.remainingBalanceConfirmedAt);
-        if (remainingDate.getFullYear() === currentYear && remainingDate.getMonth() === monthIndex) {
-          monthRevenueForApt += remainingAmount;
-        }
+        confirmationDate = new Date(paymentData.remainingBalanceConfirmedAt);
+      } else if (paymentData.fullPaymentConfirmedAt) {
+        confirmationDate = new Date(paymentData.fullPaymentConfirmedAt);
+      } else {
+        // For fully paid appointments without explicit confirmation dates, use appointment date
+        confirmationDate = new Date(apt.date);
       }
       
-      // Fallback: If no confirmation dates but payment status indicates payment, use appointment date
-      // This handles online payments that were paid but not yet confirmed by staff
-      if (!paymentData.depositConfirmedAt && 
-          !paymentData.fullPaymentConfirmedAt && 
-          !paymentData.remainingBalanceConfirmedAt) {
-        const method = paymentData.method;
-        if ((apt.paymentStatus === 'fully_paid' || apt.paymentStatus === 'down_payment_paid') &&
-            (method === 'online' || method === 'gcash' || method === 'paymaya')) {
-          const aptDate = new Date(apt.date);
-          if (aptDate.getFullYear() === currentYear && aptDate.getMonth() === monthIndex) {
-            if (apt.paymentStatus === 'fully_paid') {
-              monthRevenueForApt += apt.price;
-            } else if (apt.paymentStatus === 'down_payment_paid') {
-              monthRevenueForApt += depositAmount;
-            }
-          }
-        }
+      // Count the FULL price in the month when the appointment was completed
+      if (confirmationDate.getFullYear() === currentYear && confirmationDate.getMonth() === monthIndex) {
+        return sum + apt.price; // Full price of the service
       }
       
-      return sum + monthRevenueForApt;
+      return sum;
     }, 0);
     
     return {

@@ -15,6 +15,8 @@ export const list = query({
       stock: v.number(),
       price: v.number(),
       expiryDate: v.string(),
+      reorderPoint: v.optional(v.number()),
+      targetLevel: v.optional(v.number()),
     })
   ),
   handler: async (ctx) => {
@@ -32,6 +34,8 @@ export const add = mutation({
     stock: v.number(),
     price: v.number(),
     expiryDate: v.string(),
+    reorderPoint: v.optional(v.number()),
+    targetLevel: v.optional(v.number()),
   },
   returns: v.id("inventoryItems"),
   handler: async (ctx, args) => {
@@ -50,6 +54,8 @@ export const update = mutation({
     stock: v.optional(v.number()),
     price: v.optional(v.number()),
     expiryDate: v.optional(v.string()),
+    reorderPoint: v.optional(v.number()),
+    targetLevel: v.optional(v.number()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {

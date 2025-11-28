@@ -13,6 +13,8 @@ function convertInventoryItem(doc: {
   stock: number;
   price: number;
   expiryDate: string;
+  reorderPoint?: number;
+  targetLevel?: number;
 }): InventoryItem {
   return {
     id: doc._id,
@@ -21,6 +23,8 @@ function convertInventoryItem(doc: {
     stock: doc.stock,
     price: doc.price,
     expiryDate: doc.expiryDate,
+    reorderPoint: doc.reorderPoint,
+    targetLevel: doc.targetLevel,
   };
 }
 
@@ -43,6 +47,8 @@ export function useInventoryStore() {
       stock: item.stock,
       price: item.price,
       expiryDate: item.expiryDate,
+      reorderPoint: item.reorderPoint,
+      targetLevel: item.targetLevel,
     });
   };
 
@@ -54,6 +60,8 @@ export function useInventoryStore() {
       stock?: number;
       price?: number;
       expiryDate?: string;
+      reorderPoint?: number;
+      targetLevel?: number;
     } = {
       id: id as Id<"inventoryItems">,
     };
@@ -63,6 +71,8 @@ export function useInventoryStore() {
     if (updates.stock !== undefined) updateData.stock = updates.stock;
     if (updates.price !== undefined) updateData.price = updates.price;
     if (updates.expiryDate !== undefined) updateData.expiryDate = updates.expiryDate;
+    if (updates.reorderPoint !== undefined) updateData.reorderPoint = updates.reorderPoint;
+    if (updates.targetLevel !== undefined) updateData.targetLevel = updates.targetLevel;
 
     await updateItemMutation(updateData);
   };

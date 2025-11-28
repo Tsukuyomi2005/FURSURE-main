@@ -376,30 +376,32 @@ export function ScheduleManagement() {
                         const appointmentCount = dayAppointments.length;
                         
                         return (
-                          <td key={dayIndex} className="px-2 py-4 align-top relative min-w-[120px]">
-                            <div className="space-y-1 pt-1">
-                              {appointmentCount > 0 && (
-                                <div className="absolute top-1 left-1 w-5 h-5 rounded-full bg-blue-500 text-white text-[10px] font-semibold flex items-center justify-center z-10 shadow-sm">
-                                  {appointmentCount}
-                                </div>
-                              )}
+                          <td key={dayIndex} className="px-2 py-4 align-middle min-w-[120px]">
+                            <div className="flex flex-col items-center justify-center space-y-1 min-h-[60px] relative">
                               {dayAppointments
                                 .sort((a, b) => a.time.localeCompare(b.time))
-                                .map((apt) => (
+                                .map((apt, index) => (
                                   <div
                                     key={apt.id}
-                                    className={`border rounded p-2 text-xs transition-colors cursor-pointer ${getStatusColorClasses(apt)}`}
+                                    className={`border rounded p-1.5 text-xs transition-colors cursor-pointer w-[140px] min-h-[50px] flex flex-col justify-start items-start relative ${getStatusColorClasses(apt)}`}
                                   >
-                                    <div className="font-medium text-gray-900">
+                                    {index === 0 && appointmentCount > 0 && (
+                                      <div className="absolute -top-2.5 -left-2.5 w-5 h-5 rounded-full bg-blue-500 text-white text-[10px] font-semibold flex items-center justify-center z-10 shadow-sm">
+                                        {appointmentCount}
+                                      </div>
+                                    )}
+                                    <div className="text-gray-500 font-mono text-[10px] leading-tight mb-1">
                                       {formatTime24Hour(apt.time)}
-                                      {apt.serviceType && (
-                                        <span className="text-gray-700 ml-1">- {getServiceName(apt.serviceType)}</span>
-                                      )}
                                     </div>
+                                    {apt.serviceType && (
+                                      <div className="font-medium text-gray-900 text-[10px] leading-tight break-words w-full">
+                                        {getServiceName(apt.serviceType)}
+                                      </div>
+                                    )}
                                   </div>
                                 ))}
                               {appointmentCount === 0 && (
-                                <div className="text-xs text-gray-400 text-center py-2">
+                                <div className="text-xs text-gray-400 text-center">
                                   {isWorkingDay ? 'Available' : 'Off'}
                                 </div>
                               )}
@@ -409,20 +411,22 @@ export function ScheduleManagement() {
                       } else {
                         // For clinic staff: show working hours
                         return (
-                          <td key={dayIndex} className="px-2 py-4 align-top">
-                            {isWorkingDay && staffAvailability ? (
-                              <div className="text-xs text-gray-700">
-                                <div className="font-medium">
-                                  {formatTime12Hour(staffAvailability.startTime)}
+                          <td key={dayIndex} className="px-2 py-4 align-top relative min-w-[120px]">
+                            <div className="space-y-1 pt-1 flex flex-col items-center justify-center">
+                              {isWorkingDay && staffAvailability ? (
+                                <div className="text-xs text-gray-700 text-center">
+                                  <div className="font-medium">
+                                    {formatTime12Hour(staffAvailability.startTime)}
+                                  </div>
+                                  <div className="text-gray-500 text-[10px]">to</div>
+                                  <div className="font-medium">
+                                    {formatTime12Hour(staffAvailability.endTime)}
+                                  </div>
                                 </div>
-                                <div className="text-gray-500 text-[10px]">to</div>
-                                <div className="font-medium">
-                                  {formatTime12Hour(staffAvailability.endTime)}
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="text-xs text-gray-400 text-center py-2">Off</div>
-                            )}
+                              ) : (
+                                <div className="text-xs text-gray-400 text-center py-2">Off</div>
+                              )}
+                            </div>
                           </td>
                         );
                       }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Filter, Package, Plus, Minus } from 'lucide-react';
+import { Search, Filter, Package, Plus, Minus, Settings } from 'lucide-react';
 import { useInventoryStore } from '../stores/inventoryStore';
 import { toast } from 'sonner';
 import type { InventoryItem } from '../types';
@@ -9,6 +9,7 @@ export function StaffInventory() {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [adjustingStock, setAdjustingStock] = useState<{ item: InventoryItem; adjustment: number } | null>(null);
+  const [editingReorderPoint, setEditingReorderPoint] = useState<InventoryItem | null>(null);
 
   const categories = [...new Set(items.map(item => item.category))];
 
@@ -47,6 +48,22 @@ export function StaffInventory() {
 
   const openAdjustModal = (item: InventoryItem, adjustment: number) => {
     setAdjustingStock({ item, adjustment });
+  };
+
+  const handleReorderPointUpdate = async (item: InventoryItem, reorderPoint: number) => {
+    if (reorderPoint < 0) {
+      toast.error('Reorder point must be a positive number');
+      return;
+    }
+
+    try {
+      await updateItem(item.id, { reorderPoint });
+      toast.success('Reorder point updated successfully');
+      setEditingReorderPoint(null);
+    } catch (error) {
+      console.error('Failed to update reorder point:', error);
+      toast.error('Failed to update reorder point. Please try again.');
+    }
   };
 
   return (
@@ -139,6 +156,13 @@ export function StaffInventory() {
                     >
                       <Minus className="h-4 w-4" />
                     </button>
+                    <button
+                      onClick={() => setEditingReorderPoint(item)}
+                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      title="Set Reorder Point"
+                    >
+                      <Settings className="h-4 w-4" />
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -195,6 +219,13 @@ export function StaffInventory() {
               >
                 <Minus className="h-4 w-4" />
                 Deduct Stock
+              </button>
+              <button
+                onClick={() => setEditingReorderPoint(item)}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+              >
+                <Settings className="h-4 w-4" />
+                Set Levels
               </button>
             </div>
           </div>
@@ -258,6 +289,60 @@ export function StaffInventory() {
                     }`}
                   >
                     {adjustingStock.adjustment > 0 ? 'Add Stock' : 'Deduct Stock'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reorder Point / Target Level Modal */}
+      {editingReorderPoint && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex min-h-screen items-center justify-center p-4">
+            <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setEditingReorderPoint(null)} />
+            <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="p-6 border-b">
+                <h3 className="text-lg font-semibold text-gray-900">Set Reorder Point</h3>
+                <p className="text-sm text-gray-600 mt-1">{editingReorderPoint.name}</p>
+              </div>
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Current Stock: <span className="font-bold">{editingReorderPoint.stock}</span>
+                  </label>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Reorder Point
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    defaultValue={editingReorderPoint.reorderPoint || 0}
+                    id="reorder-point"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter reorder point"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Stock level at which to reorder</p>
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button
+                    onClick={() => setEditingReorderPoint(null)}
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      const reorderPointInput = document.getElementById('reorder-point') as HTMLInputElement;
+                      const reorderPoint = parseInt(reorderPointInput.value) || 0;
+                      handleReorderPointUpdate(editingReorderPoint, reorderPoint);
+                    }}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Save
                   </button>
                 </div>
               </div>

@@ -11,6 +11,8 @@ const applicationTables = {
     stock: v.number(),
     price: v.number(),
     expiryDate: v.string(),
+    reorderPoint: v.optional(v.number()),
+    targetLevel: v.optional(v.number()),
   }),
   appointments: defineTable({
     petName: v.string(),
