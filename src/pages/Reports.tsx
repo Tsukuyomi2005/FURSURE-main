@@ -643,6 +643,7 @@ export function Reports() {
                 <option value="">Select an item to view stockout prediction</option>
                 {items
                   .filter(item => item.reorderPoint !== undefined && item.reorderPoint > 0)
+                  .sort((a, b) => a.name.localeCompare(b.name))
                   .map(item => (
                     <option key={item.id} value={item.id}>
                       {item.name}
@@ -823,7 +824,7 @@ export function Reports() {
                 </ResponsiveContainer>
                 
                 {/* Chart Legend */}
-                <div className="mt-4 flex items-center justify-center gap-6 text-sm flex-wrap">
+                <div className="-mt-2 mb-1 flex items-center justify-center gap-6 text-sm flex-wrap">
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 rounded bg-blue-500"></div>
                     <span className="text-gray-700">Projected Stock</span>
