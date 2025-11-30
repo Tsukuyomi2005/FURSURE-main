@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, AreaChart, Area, BarChart, Bar, ReferenceLine } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, AreaChart, Area, BarChart, Bar, ReferenceLine, ComposedChart } from 'recharts';
+import { Search } from 'lucide-react';
 import { useAppointmentStore } from '../stores/appointmentStore';
 import { useServiceStore } from '../stores/serviceStore';
 import { useInventoryStore } from '../stores/inventoryStore';
-import type { Appointment } from '../types';
+import type { Appointment, InventoryItem } from '../types';
 
 type ReportPeriod = 'today' | 'yesterday' | 'thisWeek' | 'thisMonth' | 'lastMonth' | 'thisQuarter' | 'thisYear';
 
@@ -14,6 +15,7 @@ export function Reports() {
   const { services } = useServiceStore();
   const { items } = useInventoryStore();
   const [selectedPeriod, setSelectedPeriod] = useState<ReportPeriod>('today');
+  const [selectedItemId, setSelectedItemId] = useState<string>('');
 
   // Helper function to get date range based on period
   const getDateRange = (period: ReportPeriod): { start: Date; end: Date } => {
@@ -624,203 +626,224 @@ export function Reports() {
           </div>
         </div>
 
-        {/* Inventory Stock Level - Bullet Chart */}
+        {/* Inventory Stockout Prediction */}
         <div className="bg-white rounded-lg p-6 shadow-sm border">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Inventory Stock Level</h2>
-          <p className="text-sm text-gray-600 mb-6">Current stock vs reorder point</p>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Inventory Stockout Prediction</h2>
+          <p className="text-sm text-gray-600 mb-6">Forecast stock depletion based on average daily use</p>
           
-          {useMemo(() => {
-            const inventoryData = items
-              .filter(item => item.reorderPoint !== undefined && item.reorderPoint > 0)
-              .map(item => {
-                const rop = item.reorderPoint || 0;
-                const current = item.stock;
-                
-                // Determine status based on stock level vs reorder point
-                let status = 'Good';
-                
-                if (current <= rop) {
-                  status = 'Reorder Now';
-                } else if (current <= rop * 1.2) {
-                  status = 'Monitor';
-                }
-                
-                const maxValue = Math.max(current, rop * 1.5, 1);
-                const chartMax = maxValue * 1.2;
-                
-                // For stacking: ROP at bottom, current stock on top
-                // Base bar: ROP value
-                // Top bar: current - ROP (if current > ROP), or 0 (if current <= ROP)
-                const currentAboveROP = current > rop ? current - rop : 0;
-                
-                // Calculate ROP bar segments with threshold (10% of ROP or minimum 2 units)
-                const ropThreshold = Math.max(rop * 0.1, 2);
-                const ropRedZone = Math.max(0, rop - ropThreshold); // Red: below ROP
-                const ropYellowZone = ropThreshold * 2; // Yellow: around ROP (ROP-threshold to ROP+threshold)
-                const ropGreenZone = Math.max(0, chartMax - (rop + ropThreshold)); // Green: above ROP
-                
-                return {
-                  name: item.name.length > 20 ? item.name.substring(0, 20) + '...' : item.name,
-                  fullName: item.name,
-                  current: current,
-                  reorderPoint: rop,
-                  currentAboveROP: currentAboveROP,
-                  max: maxValue * 1.2,
-                  ropRedZone: ropRedZone,
-                  ropYellowZone: ropYellowZone,
-                  ropGreenZone: ropGreenZone,
-                  status: status,
-                };
-              })
-              .sort((a, b) => b.current - a.current)
-              .slice(0, 10); // Show top 10 items
+          {/* Item Selection Filter */}
+          <div className="mb-6">
+            <div className="relative max-w-md">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <select
+                value={selectedItemId}
+                onChange={(e) => setSelectedItemId(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
+              >
+                <option value="">Select an item to view stockout prediction</option>
+                {items
+                  .filter(item => item.reorderPoint !== undefined && item.reorderPoint > 0)
+                  .map(item => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          </div>
 
-            if (inventoryData.length === 0) {
+          {useMemo(() => {
+            if (!selectedItemId) {
               return (
-                <div className="h-80 flex items-center justify-center text-gray-500">
-                  <p>No inventory items with reorder points set</p>
+                <div className="h-96 flex items-center justify-center text-gray-500">
+                  <p>Please select an item to view stockout prediction</p>
                 </div>
               );
             }
 
+            const selectedItem = items.find(item => item.id === selectedItemId);
+            if (!selectedItem) {
+              return (
+                <div className="h-96 flex items-center justify-center text-gray-500">
+                  <p>Item not found</p>
+                </div>
+              );
+            }
+
+            // Calculate Average Daily Use (ADU) for the selected item
+            const itemUsageMap = new Map<string, { totalQuantity: number; dates: Set<string> }>();
+
+            appointments.forEach(appointment => {
+              if (appointment.itemsUsed && appointment.itemsUsed.length > 0) {
+                appointment.itemsUsed.forEach(itemUsed => {
+                  if (itemUsed.deductionStatus === 'confirmed' && itemUsed.itemName === selectedItem.name) {
+                    const quantity = itemUsed.quantity || 0;
+                    const appointmentDate = appointment.date;
+
+                    if (!itemUsageMap.has(selectedItem.name)) {
+                      itemUsageMap.set(selectedItem.name, { totalQuantity: 0, dates: new Set() });
+                    }
+
+                    const itemData = itemUsageMap.get(selectedItem.name)!;
+                    itemData.totalQuantity += quantity;
+                    itemData.dates.add(appointmentDate);
+                  }
+                });
+              }
+            });
+
+            const usageData = itemUsageMap.get(selectedItem.name);
+            const uniqueDays = usageData ? usageData.dates.size : 0;
+            const averageDailyUse = uniqueDays > 0 ? usageData!.totalQuantity / uniqueDays : 0;
+
+            if (averageDailyUse === 0) {
+              return (
+                <div className="h-96 flex items-center justify-center text-gray-500">
+                  <p>No usage data available for this item. Stockout prediction requires average daily use data.</p>
+                </div>
+              );
+            }
+
+            // Calculate stockout prediction
+            const currentStock = selectedItem.stock;
+            const reorderPoint = selectedItem.reorderPoint || 0;
+            const safetyStock = selectedItem.safetyStock || 0;
+            const leadTime = selectedItem.leadTime || 0;
+
+            // Calculate days until stockout
+            const daysUntilStockout = Math.ceil(currentStock / averageDailyUse);
+            
+            // Generate data points from today to stockout
+            const chartData: Array<{
+              date: string;
+              projectedStock: number;
+              reorderPoint: number;
+              safetyStock: number;
+              currentStock?: number;
+            }> = [];
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            for (let day = 0; day <= daysUntilStockout; day++) {
+              const date = new Date(today);
+              date.setDate(date.getDate() + day);
+              
+              const projectedStock = Math.max(0, currentStock - (averageDailyUse * day));
+              
+              chartData.push({
+                date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                projectedStock: Math.round(projectedStock * 100) / 100,
+                reorderPoint: reorderPoint,
+                safetyStock: safetyStock,
+                currentStock: day === 0 ? currentStock : undefined,
+              });
+            }
+
             return (
-              <div className="h-96 overflow-y-auto">
+              <div className="h-96">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={inventoryData}
-                    layout="vertical"
-                    margin={{ top: 20, right: 30, left: 100, bottom: 20 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis type="number" />
+                  <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                    <defs>
+                      <linearGradient id="colorStock" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1}/>
+                      </linearGradient>
+                      <linearGradient id="colorSafetyStock" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0.1}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis 
+                      dataKey="date" 
+                      stroke="#6b7280"
+                      style={{ fontSize: '12px' }}
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                    />
                     <YAxis 
-                      dataKey="name" 
-                      type="category" 
-                      width={90}
-                      tick={{ fontSize: 12 }}
+                      stroke="#6b7280"
+                      style={{ fontSize: '12px' }}
+                      label={{ value: 'Stock Quantity', angle: -90, position: 'insideLeft' }}
                     />
-                    <Tooltip
-                      content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          const data = payload[0].payload;
-                          return (
-                            <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-                              <p className="font-semibold text-gray-900 mb-2">{data.fullName}</p>
-                              <p className="text-sm text-gray-700">
-                                <span className="font-medium">Current Stock:</span> {data.current}
-                              </p>
-                              <p className="text-sm text-gray-700">
-                                <span className="font-medium">Reorder Point:</span> {data.reorderPoint}
-                              </p>
-                              <p className="text-sm mt-1">
-                                <span className={`font-medium px-2 py-1 rounded ${data.status === 'Reorder Now' ? 'bg-red-100 text-red-800' : data.status === 'Monitor' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
-                                  {data.status}
-                                </span>
-                              </p>
-                            </div>
-                          );
-                        }
-                        return null;
+                    <Tooltip 
+                      formatter={(value: number, name: string) => {
+                        if (name === 'projectedStock') return [value.toFixed(2), 'Projected Stock'];
+                        if (name === 'reorderPoint') return [value, 'Reorder Point'];
+                        if (name === 'safetyStock') return [value, 'Safety Stock'];
+                        if (name === 'currentStock') return [value, 'Current Stock'];
+                        return [value, name];
+                      }}
+                      contentStyle={{
+                        backgroundColor: 'white',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '8px',
                       }}
                     />
-                    {/* Background range bar */}
-                    <Bar 
-                      dataKey="max" 
-                      fill="#f3f4f6" 
-                      name="Max Range"
-                      radius={[0, 4, 4, 0]}
-                      opacity={0.2}
-                      stackId="background"
+                    {/* Red area: Safety stock danger zone */}
+                    <Area
+                      type="monotone"
+                      dataKey="safetyStock"
+                      fill="url(#colorSafetyStock)"
+                      stroke="none"
+                      name="Safety Stock Zone"
                     />
-                    {/* Reorder point bar segments - Red zone (below ROP) */}
-                    <Bar 
-                      dataKey="ropRedZone" 
-                      name="Below ROP"
-                      fill="#ef4444"
-                      radius={[0, 0, 0, 0]}
-                      opacity={0.7}
-                      stackId="rop"
-                      barSize={40}
+                    {/* Blue area: Projected stock declining */}
+                    <Area
+                      type="monotone"
+                      dataKey="projectedStock"
+                      stroke="#3b82f6"
+                      strokeWidth={2}
+                      fill="url(#colorStock)"
+                      name="Projected Stock"
                     />
-                    {/* Yellow zone (at/near ROP) */}
-                    <Bar 
-                      dataKey="ropYellowZone" 
-                      name="At ROP"
-                      fill="#f59e0b"
-                      radius={[0, 0, 0, 0]}
-                      opacity={0.7}
-                      stackId="rop"
-                      barSize={40}
+                    {/* Orange dashed line: Reorder point */}
+                    <Line
+                      type="monotone"
+                      dataKey="reorderPoint"
+                      stroke="#f97316"
+                      strokeWidth={2}
+                      strokeDasharray="5 5"
+                      dot={false}
+                      name="Reorder Point"
                     />
-                    {/* Green zone (above ROP) */}
-                    <Bar 
-                      dataKey="ropGreenZone" 
-                      name="Above ROP"
-                      fill="#10b981"
-                      radius={[0, 0, 0, 0]}
-                      opacity={0.7}
-                      stackId="rop"
-                      barSize={40}
-                    />
-                    {/* Current stock on top of ROP - only shows the portion above ROP (thinner, gray) */}
-                    <Bar 
-                      dataKey="currentAboveROP" 
+                    {/* Green dot: Current stock (only on first day) */}
+                    <Line
+                      type="monotone"
+                      dataKey="currentStock"
+                      stroke="#10b981"
+                      strokeWidth={0}
+                      dot={{ fill: '#10b981', r: 6 }}
+                      activeDot={{ r: 8 }}
                       name="Current Stock"
-                      fill="#e5e7eb"
-                      radius={[0, 4, 4, 0]}
-                      stackId="stock"
-                      barSize={25}
                     />
-                    {/* For items where current <= ROP, show current as a separate bar below ROP (thinner, gray) */}
-                    {inventoryData.map((entry, index) => {
-                      if (entry.current <= entry.reorderPoint && entry.current > 0) {
-                        return (
-                          <Bar
-                            key={`current-low-${index}`}
-                            dataKey={() => entry.current}
-                            fill="#e5e7eb"
-                            name=""
-                            radius={[0, 4, 4, 0]}
-                            stackId={`low-${index}`}
-                            data={[entry]}
-                            barSize={25}
-                          />
-                        );
-                      }
-                      return null;
-                    })}
-                    <Legend 
-                      wrapperStyle={{ paddingTop: '20px' }}
-                      formatter={(value) => {
-                        const labels: { [key: string]: string } = {
-                          'Max Range': 'Max Range',
-                          'Reorder Point': 'Reorder Point',
-                          'Current Stock': 'Current Stock',
-                        };
-                        return labels[value] || value;
-                      }}
-                    />
-                  </BarChart>
+                  </ComposedChart>
                 </ResponsiveContainer>
                 
-                {/* Legend for color coding */}
-                <div className="mt-4 flex items-center justify-center gap-6 text-sm">
+                {/* Chart Legend */}
+                <div className="mt-4 flex items-center justify-center gap-6 text-sm flex-wrap">
                   <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded bg-red-500"></div>
-                    <span className="text-gray-700">Reorder Now (≤ ROP)</span>
+                    <div className="w-4 h-4 rounded bg-blue-500"></div>
+                    <span className="text-gray-700">Projected Stock</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded bg-yellow-500"></div>
-                    <span className="text-gray-700">Monitor (slightly above ROP)</span>
+                    <div className="w-4 h-1 border-t-2 border-dashed border-orange-500"></div>
+                    <span className="text-gray-700">Reorder Point</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded bg-green-500"></div>
-                    <span className="text-gray-700">Good (comfortably above ROP)</span>
+                    <div className="w-4 h-4 rounded bg-red-200"></div>
+                    <span className="text-gray-700">Safety Stock Zone</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                    <span className="text-gray-700">Current Stock</span>
                   </div>
                 </div>
               </div>
             );
-          }, [items])}
+          }, [items, appointments, selectedItemId])}
         </div>
       </div>
     </div>
