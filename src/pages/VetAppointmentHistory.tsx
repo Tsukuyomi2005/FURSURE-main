@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
-import { Calendar, Clock, Search, Filter, User, FileText, CheckCircle2, XCircle, TrendingUp, TrendingDown } from 'lucide-react';
+import { Calendar, Clock, Search, Filter, User, FileText, CheckCircle2, XCircle, TrendingUp, TrendingDown, NotebookPen } from 'lucide-react';
 import { useAppointmentStore } from '../stores/appointmentStore';
 import { useServiceStore } from '../stores/serviceStore';
+import { LogItemsUsedModal } from '../components/LogItemsUsedModal';
 import type { Appointment } from '../types';
 
 // Get veterinarian's full name from localStorage
@@ -42,6 +43,8 @@ export function VetAppointmentHistory() {
   const [endDate, setEndDate] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [clientNameFilter, setClientNameFilter] = useState<string>('');
+  const [selectedAppointmentForLogging, setSelectedAppointmentForLogging] = useState<Appointment | null>(null);
+  const [showLogItemsModal, setShowLogItemsModal] = useState(false);
 
   // Filter appointments for this veterinarian
   const vetAppointments = useMemo(() => {
@@ -182,6 +185,16 @@ export function VetAppointmentHistory() {
     setEndDate('');
     setStatusFilter('all');
     setClientNameFilter('');
+  };
+
+  const handleLogItemsClick = (appointment: Appointment) => {
+    setSelectedAppointmentForLogging(appointment);
+    setShowLogItemsModal(true);
+  };
+
+  const handleCloseLogItemsModal = () => {
+    setShowLogItemsModal(false);
+    setSelectedAppointmentForLogging(null);
   };
 
   return (
@@ -368,12 +381,13 @@ export function VetAppointmentHistory() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Service</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredAppointments.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
                     <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                     <p>No appointments found</p>
                   </td>
@@ -397,6 +411,17 @@ export function VetAppointmentHistory() {
                         {getStatusLabel(apt)}
                       </span>
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      {apt.status === 'approved' && apt.paymentStatus === 'fully_paid' && (
+                        <button
+                          onClick={() => handleLogItemsClick(apt)}
+                          className="text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1"
+                          title="Log Items Used"
+                        >
+                          <NotebookPen className="h-5 w-5" />
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))
               )}
@@ -404,6 +429,13 @@ export function VetAppointmentHistory() {
           </table>
         </div>
       </div>
+
+      {/* Log Items Used Modal */}
+      <LogItemsUsedModal
+        isOpen={showLogItemsModal}
+        onClose={handleCloseLogItemsModal}
+        appointment={selectedAppointmentForLogging}
+      />
     </div>
   );
 }

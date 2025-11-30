@@ -15,6 +15,7 @@ import { useServiceStore } from '../stores/serviceStore';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { toast } from 'sonner';
 import type { Appointment } from '../types';
+import { createAppointmentIdMap, generateAppointmentId as generateSequentialAppointmentId } from '../utils/appointmentId';
 
 // Legacy service mapping for backward compatibility with old appointment data
 const legacyServices: Record<string, string> = {
@@ -28,21 +29,6 @@ const legacyServices: Record<string, string> = {
   'pet-foods': 'Pet Foods',
 };
 
-// Generate appointment ID from the database ID
-const generateAppointmentId = (id: string): string => {
-  // Extract numeric part from the ID (Convex IDs are like "j123abc456")
-  const numericMatch = id.match(/\d+/);
-  if (numericMatch) {
-    return `APPT-${numericMatch[0]}`;
-  }
-  // Fallback: use hash of the ID
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) {
-    hash = ((hash << 5) - hash) + id.charCodeAt(i);
-    hash = hash & hash;
-  }
-  return `APPT-${Math.abs(hash)}`;
-};
 
 // Format date to readable format
 const formatDate = (dateStr: string): string => {
@@ -87,6 +73,9 @@ export function MyAppointments() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [appointmentToCancel, setAppointmentToCancel] = useState<Appointment | null>(null);
+
+  // Create appointment ID map for sequential numbering (oldest = 1)
+  const appointmentIdMap = useMemo(() => createAppointmentIdMap(appointments), [appointments]);
   
   // Get service name from service ID
   const getServiceName = (serviceId: string | undefined): string => {
@@ -200,26 +189,49 @@ export function MyAppointments() {
     setSearchQuery('');
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'approved': return 'bg-green-100 text-green-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'rejected': return 'bg-red-100 text-red-800';
-      case 'cancelled': return 'bg-gray-100 text-gray-800';
-      case 'rescheduled': return 'bg-blue-100 text-blue-800';
-      default: return 'bg-gray-100 text-gray-800';
+  const getStatusColor = (appointment: Appointment) => {
+    if (appointment.status === 'cancelled') {
+      return 'bg-red-100 text-red-800';
     }
+    if (appointment.status === 'pending') {
+      return 'bg-yellow-100 text-yellow-800';
+    }
+    if (appointment.status === 'approved') {
+      // Check if completed (fully paid) - show blue
+      if (appointment.paymentStatus === 'fully_paid') {
+        return 'bg-blue-100 text-blue-800';
+      }
+      // Confirmed (approved but not fully paid) - show green
+      return 'bg-green-100 text-green-800';
+    }
+    if (appointment.status === 'rejected') {
+      return 'bg-red-100 text-red-800';
+    }
+    if (appointment.status === 'rescheduled') {
+      return 'bg-purple-100 text-purple-800';
+    }
+    return 'bg-gray-100 text-gray-800';
   };
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'approved': return 'Confirmed';
-      case 'pending': return 'Pending';
-      case 'rejected': return 'Rejected';
-      case 'cancelled': return 'Cancelled';
-      case 'rescheduled': return 'Rescheduled';
-      default: return status;
+  const getStatusLabel = (appointment: Appointment) => {
+    if (appointment.status === 'cancelled') return 'Cancelled';
+    if (appointment.status === 'pending') return 'Pending';
+    if (appointment.status === 'approved') {
+      if (appointment.paymentStatus === 'fully_paid') {
+        return 'Completed';
+      }
+      return 'Confirmed';
     }
+    if (appointment.status === 'rejected') return 'Rejected';
+    if (appointment.status === 'rescheduled') return 'Rescheduled';
+    return appointment.status;
+  };
+
+  // Check if appointment can be cancelled (only Pending or Confirmed status)
+  const canCancelAppointment = (appointment: Appointment): boolean => {
+    if (appointment.status === 'pending') return true;
+    if (appointment.status === 'approved' && appointment.paymentStatus !== 'fully_paid') return true;
+    return false;
   };
 
   return (
@@ -383,7 +395,7 @@ export function MyAppointments() {
                 filteredAppointments.map((appointment) => (
                   <tr key={appointment.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {generateAppointmentId(appointment.id)}
+                      {generateSequentialAppointmentId(appointment.id, appointmentIdMap)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {appointment.serviceType ? getServiceName(appointment.serviceType) : 'N/A'}
@@ -408,8 +420,8 @@ export function MyAppointments() {
                       ₱{appointment.price?.toLocaleString() || '0'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(appointment.status)}`}>
-                        {getStatusLabel(appointment.status)}
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(appointment)}`}>
+                        {getStatusLabel(appointment)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -421,7 +433,7 @@ export function MyAppointments() {
                         >
                           <Eye className="h-5 w-5" />
                         </button>
-                        {(appointment.status === 'pending' || appointment.status === 'approved') && (
+                        {canCancelAppointment(appointment) && (
                           <button
                             onClick={() => handleCancelClick(appointment)}
                             className="text-red-600 hover:text-red-800 transition-colors"
@@ -448,7 +460,7 @@ export function MyAppointments() {
             <div className="relative bg-white rounded-lg shadow-xl max-w-2xl w-full">
               <div className="flex items-center justify-between p-6 border-b">
                 <h3 className="text-xl font-semibold text-gray-900">
-                  Appointment Details - {generateAppointmentId(selectedAppointment.id)}
+                  Appointment Details - {generateSequentialAppointmentId(selectedAppointment.id, appointmentIdMap)}
                 </h3>
                 <button
                   onClick={() => setShowDetailsModal(false)}
@@ -492,8 +504,8 @@ export function MyAppointments() {
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">Status</p>
-                    <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(selectedAppointment.status)}`}>
-                      {getStatusLabel(selectedAppointment.status)}
+                    <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(selectedAppointment)}`}>
+                      {getStatusLabel(selectedAppointment)}
                     </span>
                   </div>
                   <div>

@@ -36,6 +36,19 @@ export const list = query({
         )
       ),
       paymentData: v.optional(v.any()),
+      itemsUsed: v.optional(v.array(v.object({
+        itemId: v.string(),
+        quantity: v.number(),
+        itemName: v.string(),
+        itemCategory: v.string(),
+        deductionStatus: v.optional(v.union(
+          v.literal("pending"),
+          v.literal("confirmed"),
+          v.literal("rejected")
+        )),
+        loggedAt: v.optional(v.string()),
+        rejectedReason: v.optional(v.string()),
+      }))),
     })
   ),
   handler: async (ctx) => {
@@ -80,6 +93,19 @@ export const listByDate = query({
         )
       ),
       paymentData: v.optional(v.any()),
+      itemsUsed: v.optional(v.array(v.object({
+        itemId: v.string(),
+        quantity: v.number(),
+        itemName: v.string(),
+        itemCategory: v.string(),
+        deductionStatus: v.optional(v.union(
+          v.literal("pending"),
+          v.literal("confirmed"),
+          v.literal("rejected")
+        )),
+        loggedAt: v.optional(v.string()),
+        rejectedReason: v.optional(v.string()),
+      }))),
     })
   ),
   handler: async (ctx, args) => {
@@ -162,6 +188,19 @@ export const update = mutation({
       )
     ),
     paymentData: v.optional(v.any()),
+    itemsUsed: v.optional(v.array(v.object({
+      itemId: v.string(),
+      quantity: v.number(),
+      itemName: v.string(),
+      itemCategory: v.string(),
+      deductionStatus: v.optional(v.union(
+        v.literal("pending"),
+        v.literal("confirmed"),
+        v.literal("rejected")
+      )),
+      loggedAt: v.optional(v.string()),
+      rejectedReason: v.optional(v.string()),
+    }))),
   },
   returns: v.null(),
   handler: async (ctx, args) => {

@@ -15,6 +15,7 @@ import { useAppointmentStore } from '../stores/appointmentStore';
 import { useServiceStore } from '../stores/serviceStore';
 import { toast } from 'sonner';
 import type { Appointment } from '../types';
+import { createAppointmentIdMap, generateAppointmentId as generateSequentialAppointmentId } from '../utils/appointmentId';
 
 // Legacy service mapping for backward compatibility with old appointment data
 const legacyServices: Record<string, string> = {
@@ -28,19 +29,6 @@ const legacyServices: Record<string, string> = {
   'pet-foods': 'Pet Foods',
 };
 
-// Generate appointment ID from the database ID
-const generateAppointmentId = (id: string): string => {
-  const numericMatch = id.match(/\d+/);
-  if (numericMatch) {
-    return `APPT-${numericMatch[0]}`;
-  }
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) {
-    hash = ((hash << 5) - hash) + id.charCodeAt(i);
-    hash = hash & hash;
-  }
-  return `APPT-${Math.abs(hash)}`;
-};
 
 // Format date to readable format
 const formatDate = (dateStr: string): string => {
@@ -77,18 +65,22 @@ interface Transaction {
   amount: number;
   transactionType: TransactionType;
   paymentMethod: PaymentMethod;
-  status: 'Completed' | 'Pending' | 'Failed';
+  status: 'Paid' | 'Pending' | 'Failed';
   appointment: Appointment;
 }
 
 // Generate transactions from appointments
-const generateTransactions = (appointments: Appointment[], servicesList: Array<{id: string, name: string}>): Transaction[] => {
+const generateTransactions = (
+  appointments: Appointment[], 
+  servicesList: Array<{id: string, name: string}>,
+  appointmentIdMap: Map<string, number>
+): Transaction[] => {
   const transactions: Transaction[] = [];
 
   appointments.forEach((appointment) => {
     if (!appointment.price) return;
 
-    const appointmentIdFormatted = generateAppointmentId(appointment.id);
+    const appointmentIdFormatted = generateSequentialAppointmentId(appointment.id, appointmentIdMap);
     
     // Get service name from services store (by ID) or legacy mapping, or fallback to ID
     let serviceName = 'N/A';
@@ -138,7 +130,7 @@ const generateTransactions = (appointments: Appointment[], servicesList: Array<{
         amount: depositAmount,
         transactionType: 'Deposit Payment',
         paymentMethod,
-        status: 'Completed',
+        status: 'Paid',
         appointment,
       });
 
@@ -180,7 +172,7 @@ const generateTransactions = (appointments: Appointment[], servicesList: Array<{
           amount: depositAmount,
           transactionType: 'Deposit Payment',
           paymentMethod,
-          status: 'Completed',
+          status: 'Paid',
           appointment,
         });
 
@@ -194,7 +186,7 @@ const generateTransactions = (appointments: Appointment[], servicesList: Array<{
           amount: remainingAmount,
           transactionType: 'Remaining Balance',
           paymentMethod: 'At Clinic',
-          status: 'Completed',
+          status: 'Paid',
           appointment,
         });
       } else {
@@ -209,7 +201,7 @@ const generateTransactions = (appointments: Appointment[], servicesList: Array<{
           amount: appointment.price,
           transactionType: 'Appointment Payment (Full)',
           paymentMethod: paymentData.method === 'at_clinic' ? 'At Clinic' : paymentMethod,
-          status: 'Completed',
+          status: 'Paid',
           appointment,
         });
       }
@@ -247,8 +239,11 @@ export function PaymentTimeline() {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
+  // Create appointment ID map for sequential numbering (oldest = 1)
+  const appointmentIdMap = useMemo(() => createAppointmentIdMap(appointments), [appointments]);
+
   // Generate transactions from appointments
-  const allTransactions = useMemo(() => generateTransactions(appointments, services), [appointments, services]);
+  const allTransactions = useMemo(() => generateTransactions(appointments, services, appointmentIdMap), [appointments, services, appointmentIdMap]);
 
   // Filter transactions
   const filteredTransactions = useMemo(() => {
@@ -321,7 +316,7 @@ export function PaymentTimeline() {
   // Calculate statistics
   const stats = useMemo(() => {
     const totalSpent = allTransactions
-      .filter(txn => txn.status === 'Completed')
+      .filter(txn => txn.status === 'Paid')
       .reduce((sum, txn) => sum + txn.amount, 0);
 
     const pendingPayments = allTransactions
@@ -329,11 +324,11 @@ export function PaymentTimeline() {
       .reduce((sum, txn) => sum + txn.amount, 0);
 
     const clinicPayments = allTransactions
-      .filter(txn => txn.paymentMethod === 'At Clinic' && txn.status === 'Completed')
+      .filter(txn => txn.paymentMethod === 'At Clinic' && txn.status === 'Paid')
       .reduce((sum, txn) => sum + txn.amount, 0);
 
     const onlinePayments = allTransactions
-      .filter(txn => (txn.paymentMethod === 'Online Payment (GCash)' || txn.paymentMethod === 'Online Payment (PayMaya)') && txn.status === 'Completed')
+      .filter(txn => (txn.paymentMethod === 'Online Payment (GCash)' || txn.paymentMethod === 'Online Payment (PayMaya)') && txn.status === 'Paid')
       .reduce((sum, txn) => sum + txn.amount, 0);
 
     return { totalSpent, pendingPayments, clinicPayments, onlinePayments };
@@ -384,7 +379,7 @@ export function PaymentTimeline() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Completed': return 'bg-green-100 text-green-800';
+      case 'Paid': return 'bg-green-100 text-green-800';
       case 'Pending': return 'bg-yellow-100 text-yellow-800';
       case 'Failed': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
@@ -406,7 +401,7 @@ export function PaymentTimeline() {
             <div>
               <p className="text-sm text-gray-600 mb-1">Total Spent</p>
               <p className="text-3xl font-bold text-gray-900">₱{stats.totalSpent.toLocaleString()}</p>
-              <p className="text-xs text-gray-500 mt-1">All completed payments</p>
+              <p className="text-xs text-gray-500 mt-1">All paid payments</p>
             </div>
             <div className="p-3 bg-green-50 rounded-lg">
               <DollarSign className="h-6 w-6 text-green-600" />
@@ -466,7 +461,7 @@ export function PaymentTimeline() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               >
                 <option value="all">All Status</option>
-                <option value="completed">Completed</option>
+                <option value="paid">Paid</option>
                 <option value="pending">Pending</option>
                 <option value="failed">Failed</option>
               </select>

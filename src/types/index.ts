@@ -11,6 +11,7 @@ export interface InventoryItem {
 
 export interface Appointment {
   id: string;
+  creationTime?: number;
   petName: string;
   ownerName: string;
   phone: string;
@@ -25,6 +26,15 @@ export interface Appointment {
   price?: number;
   paymentStatus?: 'pending' | 'down_payment_paid' | 'fully_paid';
   paymentData?: any;
+  itemsUsed?: Array<{
+    itemId: string;
+    quantity: number;
+    itemName: string;
+    itemCategory: string;
+    deductionStatus?: 'pending' | 'confirmed' | 'rejected';
+    loggedAt?: string;
+    rejectedReason?: string;
+  }>;
 }
 
 export interface PetRecord {

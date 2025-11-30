@@ -41,6 +41,22 @@ const applicationTables = {
       )
     ),
     paymentData: v.optional(v.any()),
+    itemsUsed: v.optional(v.array(v.object({
+      itemId: v.string(),
+      quantity: v.number(),
+      itemName: v.string(),
+      itemCategory: v.string(),
+      deductionStatus: v.optional(v.union(
+        v.literal("pending"),
+        v.literal("confirmed"),
+        v.literal("rejected")
+      )),
+      loggedAt: v.optional(v.string()),
+      rejectedReason: v.optional(v.string()),
+      approvedBy: v.optional(v.string()),
+      approvedByName: v.optional(v.string()),
+      approvedAt: v.optional(v.string()),
+    }))),
   }).index("by_date", ["date"]),
   schedules: defineTable({
     date: v.string(),

@@ -22,9 +22,19 @@ function convertAppointment(doc: {
   price?: number;
   paymentStatus?: 'pending' | 'down_payment_paid' | 'fully_paid';
   paymentData?: any;
+  itemsUsed?: Array<{
+    itemId: string;
+    quantity: number;
+    itemName: string;
+    itemCategory: string;
+    deductionStatus?: 'pending' | 'confirmed' | 'rejected';
+    loggedAt?: string;
+    rejectedReason?: string;
+  }>;
 }): Appointment {
   return {
     id: doc._id,
+    creationTime: doc._creationTime,
     petName: doc.petName,
     ownerName: doc.ownerName,
     phone: doc.phone,
@@ -39,6 +49,7 @@ function convertAppointment(doc: {
     price: doc.price,
     paymentStatus: doc.paymentStatus,
     paymentData: doc.paymentData,
+    itemsUsed: doc.itemsUsed,
   };
 }
 
@@ -90,6 +101,15 @@ export function useAppointmentStore() {
       price?: number;
       paymentStatus?: 'pending' | 'down_payment_paid' | 'fully_paid';
       paymentData?: any;
+      itemsUsed?: Array<{
+        itemId: string;
+        quantity: number;
+        itemName: string;
+        itemCategory: string;
+        deductionStatus?: 'pending' | 'confirmed' | 'rejected';
+        loggedAt?: string;
+        rejectedReason?: string;
+      }>;
     } = {
       id: id as Id<"appointments">,
     };
@@ -108,6 +128,7 @@ export function useAppointmentStore() {
     if (updates.price !== undefined) updateData.price = updates.price;
     if (updates.paymentStatus !== undefined) updateData.paymentStatus = updates.paymentStatus;
     if (updates.paymentData !== undefined) updateData.paymentData = updates.paymentData;
+    if (updates.itemsUsed !== undefined) updateData.itemsUsed = updates.itemsUsed;
 
     await updateAppointmentMutation(updateData);
   };

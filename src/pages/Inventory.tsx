@@ -1,23 +1,105 @@
-import { useState } from 'react';
-import { Plus, Search, Filter, Edit, Trash2, Package } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Plus, Search, Filter, Edit, Trash2, Package, TrendingUp } from 'lucide-react';
 import { useInventoryStore } from '../stores/inventoryStore';
+import { useAppointmentStore } from '../stores/appointmentStore';
 import { InventoryModal } from '../components/InventoryModal';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import type { InventoryItem } from '../types';
 
+type TabType = 'current' | 'adu';
+
+interface ADUItem {
+  itemName: string;
+  averageDailyUse: number;
+  category?: string;
+}
+
 export function Inventory() {
   const { items, deleteItem } = useInventoryStore();
+  const { appointments } = useAppointmentStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TabType>('current');
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [aduSearchTerm, setAduSearchTerm] = useState('');
+  const [aduCategoryFilter, setAduCategoryFilter] = useState('');
 
   const categories = [...new Set(items.map(item => item.category))];
 
-  const filteredItems = items.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = !categoryFilter || item.category === categoryFilter;
+  const filteredItems = items
+    .filter(item => {
+      const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = !categoryFilter || item.category === categoryFilter;
+      return matchesSearch && matchesCategory;
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  // Calculate Average Daily Use (ADU) for each item
+  // Include ALL items from inventory, showing 0 ADU for items without usage data
+  const aduData = useMemo(() => {
+    const itemUsageMap = new Map<string, { totalQuantity: number; dates: Set<string> }>();
+
+    // Process all appointments with confirmed item deductions
+    appointments.forEach(appointment => {
+      if (appointment.itemsUsed && appointment.itemsUsed.length > 0) {
+        appointment.itemsUsed.forEach(itemUsed => {
+          // Only count confirmed deductions
+          if (itemUsed.deductionStatus === 'confirmed') {
+            const itemName = itemUsed.itemName;
+            const quantity = itemUsed.quantity || 0;
+            const appointmentDate = appointment.date;
+
+            if (!itemUsageMap.has(itemName)) {
+              itemUsageMap.set(itemName, { totalQuantity: 0, dates: new Set() });
+            }
+
+            const itemData = itemUsageMap.get(itemName)!;
+            itemData.totalQuantity += quantity;
+            itemData.dates.add(appointmentDate);
+          }
+        });
+      }
+    });
+
+    // Create ADU data for ALL inventory items
+    const aduItems: ADUItem[] = items.map(item => {
+      const usageData = itemUsageMap.get(item.name);
+      let averageDailyUse = 0;
+
+      if (usageData) {
+        const uniqueDays = usageData.dates.size;
+        // Calculate average daily use
+        averageDailyUse = uniqueDays > 0 ? usageData.totalQuantity / uniqueDays : 0;
+      }
+
+      return {
+        itemName: item.name,
+        averageDailyUse: Math.round(averageDailyUse * 100) / 100, // Round to 2 decimal places
+        category: item.category,
+      };
+    });
+
+    // Sort by item name
+    return aduItems.sort((a, b) => a.itemName.localeCompare(b.itemName));
+  }, [appointments, items]);
+
+  // Get unique categories from ADU data
+  const aduCategories = useMemo(() => {
+    const cats = new Set<string>();
+    aduData.forEach(item => {
+      if (item.category) {
+        cats.add(item.category);
+      }
+    });
+    return Array.from(cats).sort();
+  }, [aduData]);
+
+  // Filter ADU data based on search and category
+  const filteredAduData = aduData.filter(item => {
+    const matchesSearch = item.itemName.toLowerCase().includes(aduSearchTerm.toLowerCase());
+    const matchesCategory = !aduCategoryFilter || item.category === aduCategoryFilter;
     return matchesSearch && matchesCategory;
   });
 
@@ -65,8 +147,38 @@ export function Inventory() {
         </button>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border">
-        <div className="p-6">
+      {/* Tabs */}
+      <div className="border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8">
+          <button
+            onClick={() => setActiveTab('current')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${
+              activeTab === 'current'
+                ? 'border-purple-500 text-purple-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <Package className="h-5 w-5" />
+            Current Stock
+          </button>
+          <button
+            onClick={() => setActiveTab('adu')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${
+              activeTab === 'adu'
+                ? 'border-purple-500 text-purple-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <TrendingUp className="h-5 w-5" />
+            Average Daily Use
+          </button>
+        </nav>
+      </div>
+
+      {/* Current Stock Tab */}
+      {activeTab === 'current' && (
+        <div className="bg-white rounded-lg shadow-sm border">
+          <div className="p-6">
             <div className="space-y-6">
               {/* Filters */}
               <div className="flex flex-col sm:flex-row gap-4">
@@ -213,8 +325,106 @@ export function Inventory() {
                 </div>
               )}
             </div>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Average Daily Use Tab */}
+      {activeTab === 'adu' && (
+        <div className="bg-white rounded-lg shadow-sm border">
+          <div className="p-6">
+            <div className="space-y-6">
+              {/* Filters */}
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <input
+                    type="text"
+                    placeholder="Search items..."
+                    value={aduSearchTerm}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAduSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div className="relative">
+                  <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <select
+                    value={aduCategoryFilter}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setAduCategoryFilter(e.target.value)}
+                    className="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
+                  >
+                    <option value="">All Categories</option>
+                    {aduCategories.map(category => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Desktop Table */}
+              <div className="hidden lg:block overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item Name</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Average Daily Use</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredAduData.map((item, index) => (
+                      <tr key={index}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <Package className="h-8 w-8 text-gray-400 mr-3" />
+                            <div className="text-sm font-medium text-gray-900">{item.itemName}</div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.category || 'N/A'}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.averageDailyUse.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="lg:hidden space-y-4">
+                {filteredAduData.map((item, index) => (
+                  <div key={index} className="bg-white rounded-lg p-4 shadow-sm border">
+                    <div className="flex items-center mb-3">
+                      <Package className="h-8 w-8 text-gray-400 mr-3" />
+                      <div>
+                        <h3 className="font-medium text-gray-900">{item.itemName}</h3>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-500">Category:</span>
+                        <p className="font-medium">{item.category || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Average Daily Use:</span>
+                        <p className="font-medium text-gray-900">{item.averageDailyUse.toFixed(2)}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {filteredAduData.length === 0 && (
+                <div className="text-center py-12">
+                  <TrendingUp className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No data found</h3>
+                  <p className="text-gray-600">
+                    {aduSearchTerm ? 'Try adjusting your search criteria' : 'No average daily use data available. Item usage data will appear here once items are used in confirmed appointments.'}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <InventoryModal
         isOpen={isModalOpen}
