@@ -75,11 +75,13 @@ export function StaffInventory() {
 
   const categories = [...new Set(items.map(item => item.category))];
 
-  const filteredItems = items.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = !categoryFilter || item.category === categoryFilter;
-    return matchesSearch && matchesCategory;
-  });
+  const filteredItems = items
+    .filter(item => {
+      const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = !categoryFilter || item.category === categoryFilter;
+      return matchesSearch && matchesCategory;
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const isExpired = (expiryDate: string) => {
     return new Date(expiryDate) < new Date();
@@ -128,6 +130,26 @@ export function StaffInventory() {
     }
   };
 
+  // Get clinic staff name from localStorage
+  const getStaffName = () => {
+    try {
+      const currentUserStr = localStorage.getItem('fursure_current_user');
+      if (currentUserStr) {
+        const currentUser = JSON.parse(currentUserStr);
+        const storedUsers = JSON.parse(localStorage.getItem('fursure_users') || '{}');
+        const userData = storedUsers[currentUser.username || currentUser.email];
+        
+        if (userData) {
+          const fullName = `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
+          return fullName || 'Clinic Staff';
+        }
+      }
+    } catch (error) {
+      console.error('Error loading staff name:', error);
+    }
+    return 'Clinic Staff';
+  };
+
   // Handle confirm deduction
   const handleConfirmDeduction = async () => {
     if (!selectedDeduction) return;
@@ -153,12 +175,18 @@ export function StaffInventory() {
         return;
       }
 
-      // Update itemsUsed to mark as confirmed
+      // Get staff name and current timestamp
+      const staffName = getStaffName();
+      const approvalTimestamp = new Date().toISOString();
+
+      // Update itemsUsed to mark as confirmed with approval info
       const updatedItemsUsed = selectedDeduction.appointment.itemsUsed?.map(item => {
         if (selectedDeduction.itemsUsed.some(pi => pi.itemId === item.itemId)) {
           return {
             ...item,
             deductionStatus: 'confirmed' as const,
+            approvedAt: approvalTimestamp,
+            approvedByName: staffName,
           };
         }
         return item;
@@ -191,13 +219,20 @@ export function StaffInventory() {
     if (!selectedDeduction) return;
 
     try {
-      // Update itemsUsed to mark as rejected with reason
+      // Get staff name and current timestamp
+      const staffName = getStaffName();
+      const rejectionTimestamp = new Date().toISOString();
+
+      // Update itemsUsed to mark as rejected with reason and timestamp
       const updatedItemsUsed = selectedDeduction.appointment.itemsUsed?.map(item => {
         if (selectedDeduction.itemsUsed.some(pi => pi.itemId === item.itemId)) {
           return {
             ...item,
             deductionStatus: 'rejected' as const,
             rejectedReason: reason,
+            // Store rejection timestamp in approvedAt field for consistency (or we could add rejectedAt to schema)
+            approvedAt: rejectionTimestamp,
+            approvedByName: staffName,
           };
         }
         return item;

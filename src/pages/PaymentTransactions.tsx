@@ -76,7 +76,14 @@ export function PaymentTransactions() {
 
       // Create transaction - always use full price of the service
       const transactionId = generateTransactionId(apt.id);
-      const dateStr = confirmationDate.toISOString().split('T')[0];
+      // Format date in local timezone (YYYY-MM-DD) to avoid UTC conversion issues
+      const formatLocalDate = (date: Date): string => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+      const dateStr = formatLocalDate(confirmationDate);
       
       transactionMap.set(apt.id, {
         id: apt.id,
@@ -108,33 +115,52 @@ export function PaymentTransactions() {
     if (dateRangeFilter !== 'all') {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
+      
+      // Helper function to format date as YYYY-MM-DD in local timezone
+      const formatLocalDate = (date: Date): string => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
 
       if (dateRangeFilter === 'today') {
-        const todayStr = today.toISOString().split('T')[0];
+        const todayStr = formatLocalDate(today);
         filtered = filtered.filter(txn => txn.confirmationDate === todayStr);
       } else if (dateRangeFilter === 'yesterday') {
         const yesterday = new Date(today);
         yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toISOString().split('T')[0];
+        const yesterdayStr = formatLocalDate(yesterday);
         filtered = filtered.filter(txn => txn.confirmationDate === yesterdayStr);
       } else if (dateRangeFilter === 'thisWeek') {
         const weekStart = new Date(today);
         weekStart.setDate(today.getDate() - today.getDay());
+        weekStart.setHours(0, 0, 0, 0);
+        const todayEnd = new Date(today);
+        todayEnd.setHours(23, 59, 59, 999);
         filtered = filtered.filter(txn => {
-          const txnDate = new Date(txn.confirmationDate);
-          return txnDate >= weekStart && txnDate <= today;
+          const txnDate = new Date(txn.confirmationDate + 'T00:00:00');
+          txnDate.setHours(0, 0, 0, 0);
+          return txnDate >= weekStart && txnDate <= todayEnd;
         });
       } else if (dateRangeFilter === 'thisMonth') {
         const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        monthStart.setHours(0, 0, 0, 0);
+        const todayEnd = new Date(today);
+        todayEnd.setHours(23, 59, 59, 999);
         filtered = filtered.filter(txn => {
-          const txnDate = new Date(txn.confirmationDate);
-          return txnDate >= monthStart && txnDate <= today;
+          const txnDate = new Date(txn.confirmationDate + 'T00:00:00');
+          txnDate.setHours(0, 0, 0, 0);
+          return txnDate >= monthStart && txnDate <= todayEnd;
         });
       } else if (dateRangeFilter === 'lastMonth') {
         const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        lastMonthStart.setHours(0, 0, 0, 0);
         const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+        lastMonthEnd.setHours(23, 59, 59, 999);
         filtered = filtered.filter(txn => {
-          const txnDate = new Date(txn.confirmationDate);
+          const txnDate = new Date(txn.confirmationDate + 'T00:00:00');
+          txnDate.setHours(0, 0, 0, 0);
           return txnDate >= lastMonthStart && txnDate <= lastMonthEnd;
         });
       }

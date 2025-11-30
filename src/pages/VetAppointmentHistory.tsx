@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Calendar, Clock, Search, Filter, User, FileText, CheckCircle2, XCircle, TrendingUp, TrendingDown, NotebookPen } from 'lucide-react';
+import { Calendar, Clock, Search, Filter, User, FileText, CheckCircle2, XCircle, TrendingUp, TrendingDown, NotebookPen, Package, Eye } from 'lucide-react';
 import { useAppointmentStore } from '../stores/appointmentStore';
 import { useServiceStore } from '../stores/serviceStore';
 import { LogItemsUsedModal } from '../components/LogItemsUsedModal';
@@ -45,6 +45,8 @@ export function VetAppointmentHistory() {
   const [clientNameFilter, setClientNameFilter] = useState<string>('');
   const [selectedAppointmentForLogging, setSelectedAppointmentForLogging] = useState<Appointment | null>(null);
   const [showLogItemsModal, setShowLogItemsModal] = useState(false);
+  const [selectedAppointmentForStatus, setSelectedAppointmentForStatus] = useState<Appointment | null>(null);
+  const [showStatusModal, setShowStatusModal] = useState(false);
 
   // Filter appointments for this veterinarian
   const vetAppointments = useMemo(() => {
@@ -195,6 +197,16 @@ export function VetAppointmentHistory() {
   const handleCloseLogItemsModal = () => {
     setShowLogItemsModal(false);
     setSelectedAppointmentForLogging(null);
+  };
+
+  const handleViewStatusClick = (appointment: Appointment) => {
+    setSelectedAppointmentForStatus(appointment);
+    setShowStatusModal(true);
+  };
+
+  const handleCloseStatusModal = () => {
+    setShowStatusModal(false);
+    setSelectedAppointmentForStatus(null);
   };
 
   return (
@@ -380,7 +392,7 @@ export function VetAppointmentHistory() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date & Time</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Service</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Appointment Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
@@ -412,15 +424,26 @@ export function VetAppointmentHistory() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      {apt.status === 'approved' && apt.paymentStatus === 'fully_paid' && (
-                        <button
-                          onClick={() => handleLogItemsClick(apt)}
-                          className="text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1"
-                          title="Log Items Used"
-                        >
-                          <NotebookPen className="h-5 w-5" />
-                        </button>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {apt.itemsUsed && apt.itemsUsed.length > 0 && (
+                          <button
+                            onClick={() => handleViewStatusClick(apt)}
+                            className="text-purple-600 hover:text-purple-800 transition-colors"
+                            title="View Item Usage Status"
+                          >
+                            <Eye className="h-5 w-5" />
+                          </button>
+                        )}
+                        {apt.status === 'approved' && apt.paymentStatus === 'fully_paid' && (
+                          <button
+                            onClick={() => handleLogItemsClick(apt)}
+                            className="text-blue-600 hover:text-blue-800 transition-colors"
+                            title="Log Items Used"
+                          >
+                            <NotebookPen className="h-5 w-5" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -436,6 +459,219 @@ export function VetAppointmentHistory() {
         onClose={handleCloseLogItemsModal}
         appointment={selectedAppointmentForLogging}
       />
+
+      {/* Item Usage Status Modal */}
+      {showStatusModal && selectedAppointmentForStatus && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex min-h-screen items-center justify-center p-4">
+            <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={handleCloseStatusModal} />
+            <div className="relative bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+              {/* Header */}
+              <div className="p-6 border-b">
+                <h2 className="text-2xl font-bold text-gray-900">Item Usage Status</h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  {selectedAppointmentForStatus.ownerName} - {selectedAppointmentForStatus.petName}
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  {formatDate(selectedAppointmentForStatus.date)} at {formatTime12Hour(selectedAppointmentForStatus.time)}
+                </p>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto p-6">
+                {selectedAppointmentForStatus.itemsUsed && selectedAppointmentForStatus.itemsUsed.length > 0 ? (
+                  <div className="space-y-4">
+                    {selectedAppointmentForStatus.itemsUsed.map((item, index) => {
+                      const status = item.deductionStatus || 'pending';
+                      const getStatusInfo = () => {
+                        if (status === 'confirmed') {
+                          return {
+                            label: 'Approved',
+                            color: 'bg-green-100 text-green-800 border-green-200',
+                            icon: CheckCircle2,
+                            iconColor: 'text-green-600'
+                          };
+                        }
+                        if (status === 'rejected') {
+                          return {
+                            label: 'Cancelled',
+                            color: 'bg-red-100 text-red-800 border-red-200',
+                            icon: XCircle,
+                            iconColor: 'text-red-600'
+                          };
+                        }
+                        return {
+                          label: 'Pending',
+                          color: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                          icon: Clock,
+                          iconColor: 'text-yellow-600'
+                        };
+                      };
+
+                      const statusInfo = getStatusInfo();
+                      const StatusIcon = statusInfo.icon;
+
+                      return (
+                        <div key={index} className="border border-gray-200 rounded-lg p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Package className="h-5 w-5 text-gray-400" />
+                                <h3 className="text-lg font-semibold text-gray-900">{item.itemName}</h3>
+                              </div>
+                              <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                  <span className="text-gray-500">Category:</span>
+                                  <p className="font-medium text-gray-900">{item.itemCategory}</p>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">Quantity:</span>
+                                  <p className="font-medium text-gray-900">{item.quantity}</p>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="ml-4">
+                              <span className={`px-3 py-1 text-xs font-medium rounded-full border ${statusInfo.color}`}>
+                                {statusInfo.label}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Status Details */}
+                          <div className="mt-3 pt-3 border-t border-gray-200">
+                            <div className="flex items-center gap-2 text-sm mb-2">
+                              <StatusIcon className={`h-4 w-4 ${statusInfo.iconColor}`} />
+                              <span className="font-medium text-gray-900">Status: {statusInfo.label}</span>
+                            </div>
+                            
+                            {/* Show approval details if approved */}
+                            {status === 'confirmed' && item.approvedAt && (
+                              <div className="ml-6 space-y-1">
+                                <p className="text-sm text-gray-600">
+                                  <span className="font-medium">Approved on: </span>
+                                  <span className="text-gray-900">
+                                    {new Date(item.approvedAt).toLocaleString('en-US', {
+                                      year: 'numeric',
+                                      month: 'short',
+                                      day: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    })}
+                                  </span>
+                                </p>
+                                {item.approvedByName && (
+                                  <p className="text-sm text-gray-600">
+                                    <span className="font-medium">Approved by: </span>
+                                    <span className="text-gray-900">{item.approvedByName}</span>
+                                  </p>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Show rejection reason if cancelled/denied */}
+                            {status === 'rejected' && (
+                              <div className="ml-6 space-y-1">
+                                {item.approvedAt && (
+                                  <p className="text-sm text-gray-600">
+                                    <span className="font-medium">Cancelled on: </span>
+                                    <span className="text-gray-900">
+                                      {new Date(item.approvedAt).toLocaleString('en-US', {
+                                        year: 'numeric',
+                                        month: 'short',
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                      })}
+                                    </span>
+                                  </p>
+                                )}
+                                {item.approvedByName && (
+                                  <p className="text-sm text-gray-600">
+                                    <span className="font-medium">Cancelled by: </span>
+                                    <span className="text-gray-900">{item.approvedByName}</span>
+                                  </p>
+                                )}
+                                {item.rejectedReason && (
+                                  <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                                    <p className="text-sm font-medium text-red-900 mb-1">Reason:</p>
+                                    <p className="text-sm text-red-800">{item.rejectedReason}</p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Show pending message */}
+                            {status === 'pending' && (
+                              <p className="ml-6 text-sm text-gray-600">
+                                Awaiting clinic staff approval
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    
+                    {/* Log Date Summary - Shows when clinic staff approved/cancelled */}
+                    {selectedAppointmentForStatus.itemsUsed.some(item => 
+                      (item.deductionStatus === 'confirmed' || item.deductionStatus === 'rejected') && item.approvedAt
+                    ) && (
+                      <div className="mt-6 pt-6 border-t border-gray-200 bg-gray-50 rounded-lg p-4">
+                        <h4 className="text-sm font-semibold text-gray-900 mb-3">Action Summary</h4>
+                        <div className="space-y-2">
+                          {selectedAppointmentForStatus.itemsUsed
+                            .filter(item => 
+                              (item.deductionStatus === 'confirmed' || item.deductionStatus === 'rejected') && item.approvedAt
+                            )
+                            .map((item, index) => {
+                              const actionType = item.deductionStatus === 'confirmed' ? 'Approved' : 'Cancelled';
+                              const actionColor = item.deductionStatus === 'confirmed' ? 'text-green-700' : 'text-red-700';
+                              
+                              return (
+                                <div key={index} className="text-sm">
+                                  <span className="text-gray-600">
+                                    <span className="font-medium">{item.itemName}</span> -{' '}
+                                    <span className={`font-medium ${actionColor}`}>{actionType}</span> on:{' '}
+                                    <span className="font-medium text-gray-900">
+                                      {new Date(item.approvedAt).toLocaleString('en-US', {
+                                        year: 'numeric',
+                                        month: 'short',
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                      })}
+                                    </span>
+                                    {item.approvedByName && (
+                                      <span className="text-gray-500"> by {item.approvedByName}</span>
+                                    )}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">No items have been logged for this appointment.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="border-t p-6 flex justify-end">
+                <button
+                  onClick={handleCloseStatusModal}
+                  className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
