@@ -131,6 +131,28 @@ export function Inventory() {
     return stock < 10;
   };
 
+  // Get stock status based on reorder point
+  const getStockStatus = (item: InventoryItem): 'safe' | 'low' | 'critical' => {
+    const reorderPoint = item.reorderPoint;
+    
+    if (reorderPoint === undefined || reorderPoint === 0) {
+      // If no reorder point set, use default thresholds
+      if (item.stock < 10) return 'critical';
+      if (item.stock < 20) return 'low';
+      return 'safe';
+    }
+    
+    // Critical: stock is below reorder point
+    if (item.stock < reorderPoint) return 'critical';
+    
+    // Low: stock is approaching reorder point (within 20% above reorder point)
+    const lowThreshold = reorderPoint * 1.2;
+    if (item.stock <= lowThreshold) return 'low';
+    
+    // Safe: stock is above the low threshold
+    return 'safe';
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -218,11 +240,12 @@ export function Inventory() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expiry</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {filteredItems.map((item) => (
-                      <tr key={item.id} className={isExpired(item.expiryDate) ? 'bg-gray-50 opacity-60' : ''}>
+                      <tr key={item.id} className={`hover:bg-purple-100 transition-colors ${isExpired(item.expiryDate) ? 'bg-gray-50 opacity-60' : ''}`}>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <Package className="h-8 w-8 text-gray-400 mr-3" />
@@ -258,6 +281,26 @@ export function Inventory() {
                               <Trash2 className="h-4 w-4" />
                             </button>
                           </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          {getStockStatus(item) === 'safe' && (
+                            <span className="flex items-center gap-1">
+                              <span className="text-green-600">🟢</span>
+                              <span className="text-gray-700">Safe</span>
+                            </span>
+                          )}
+                          {getStockStatus(item) === 'low' && (
+                            <span className="flex items-center gap-1">
+                              <span className="text-yellow-600">🟡</span>
+                              <span className="text-gray-700">Low</span>
+                            </span>
+                          )}
+                          {getStockStatus(item) === 'critical' && (
+                            <span className="flex items-center gap-1">
+                              <span className="text-red-600">🔴</span>
+                              <span className="text-gray-700">Critical</span>
+                            </span>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -310,6 +353,29 @@ export function Inventory() {
                         <span className="text-gray-500">Expiry:</span>
                         <p className={`font-medium ${isExpired(item.expiryDate) ? 'text-red-600' : 'text-gray-900'}`}>
                           {new Date(item.expiryDate).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Status:</span>
+                        <p className="font-medium">
+                          {getStockStatus(item) === 'safe' && (
+                            <span className="flex items-center gap-1 text-green-600">
+                              <span>🟢</span>
+                              <span>Safe</span>
+                            </span>
+                          )}
+                          {getStockStatus(item) === 'low' && (
+                            <span className="flex items-center gap-1 text-yellow-600">
+                              <span>🟡</span>
+                              <span>Low</span>
+                            </span>
+                          )}
+                          {getStockStatus(item) === 'critical' && (
+                            <span className="flex items-center gap-1 text-red-600">
+                              <span>🔴</span>
+                              <span>Critical</span>
+                            </span>
+                          )}
                         </p>
                       </div>
                     </div>
@@ -373,7 +439,7 @@ export function Inventory() {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {filteredAduData.map((item, index) => (
-                      <tr key={index}>
+                      <tr key={index} className="hover:bg-purple-100 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <Package className="h-8 w-8 text-gray-400 mr-3" />

@@ -13,6 +13,8 @@ const applicationTables = {
     expiryDate: v.string(),
     reorderPoint: v.optional(v.number()),
     targetLevel: v.optional(v.number()),
+    leadTime: v.optional(v.number()),
+    safetyStock: v.optional(v.number()),
   }),
   appointments: defineTable({
     petName: v.string(),

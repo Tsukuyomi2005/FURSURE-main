@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { Search, Filter, Package, Plus, Minus, Settings, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Search, Filter, Package, Plus, Minus, Settings, AlertCircle, CheckCircle2, XCircle, TrendingUp } from 'lucide-react';
 import { useInventoryStore } from '../stores/inventoryStore';
 import { useAppointmentStore } from '../stores/appointmentStore';
 import { createAppointmentIdMap, generateAppointmentId as generateSequentialAppointmentId } from '../utils/appointmentId';
@@ -8,7 +8,13 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { toast } from 'sonner';
 import type { InventoryItem, Appointment } from '../types';
 
-type TabType = 'current' | 'pending';
+type TabType = 'current' | 'pending' | 'adu';
+
+interface ADUItem {
+  itemName: string;
+  averageDailyUse: number;
+  category?: string;
+}
 
 interface PendingDeduction {
   appointment: Appointment;
@@ -29,8 +35,12 @@ export function StaffInventory() {
   const [activeTab, setActiveTab] = useState<TabType>('current');
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [aduSearchTerm, setAduSearchTerm] = useState('');
+  const [aduCategoryFilter, setAduCategoryFilter] = useState('');
   const [adjustingStock, setAdjustingStock] = useState<{ item: InventoryItem; adjustment: number } | null>(null);
   const [editingReorderPoint, setEditingReorderPoint] = useState<InventoryItem | null>(null);
+  const [leadTimeValue, setLeadTimeValue] = useState<string>('');
+  const [safetyStockValue, setSafetyStockValue] = useState<string>('');
   
   // Pending deductions state
   const [selectedDeduction, setSelectedDeduction] = useState<PendingDeduction | null>(null);
@@ -83,12 +93,101 @@ export function StaffInventory() {
     })
     .sort((a, b) => a.name.localeCompare(b.name));
 
+  // Calculate Average Daily Use (ADU) for each item
+  // Include ALL items from inventory, showing 0 ADU for items without usage data
+  const aduData = useMemo(() => {
+    const itemUsageMap = new Map<string, { totalQuantity: number; dates: Set<string> }>();
+
+    // Process all appointments with confirmed item deductions
+    appointments.forEach(appointment => {
+      if (appointment.itemsUsed && appointment.itemsUsed.length > 0) {
+        appointment.itemsUsed.forEach(itemUsed => {
+          // Only count confirmed deductions
+          if (itemUsed.deductionStatus === 'confirmed') {
+            const itemName = itemUsed.itemName;
+            const quantity = itemUsed.quantity || 0;
+            const appointmentDate = appointment.date;
+
+            if (!itemUsageMap.has(itemName)) {
+              itemUsageMap.set(itemName, { totalQuantity: 0, dates: new Set() });
+            }
+
+            const itemData = itemUsageMap.get(itemName)!;
+            itemData.totalQuantity += quantity;
+            itemData.dates.add(appointmentDate);
+          }
+        });
+      }
+    });
+
+    // Create ADU data for ALL inventory items
+    const aduItems: ADUItem[] = items.map(item => {
+      const usageData = itemUsageMap.get(item.name);
+      let averageDailyUse = 0;
+
+      if (usageData) {
+        const uniqueDays = usageData.dates.size;
+        // Calculate average daily use
+        averageDailyUse = uniqueDays > 0 ? usageData.totalQuantity / uniqueDays : 0;
+      }
+
+      return {
+        itemName: item.name,
+        averageDailyUse: Math.round(averageDailyUse * 100) / 100, // Round to 2 decimal places
+        category: item.category,
+      };
+    });
+
+    // Sort by item name
+    return aduItems.sort((a, b) => a.itemName.localeCompare(b.itemName));
+  }, [appointments, items]);
+
+  // Get unique categories from ADU data
+  const aduCategories = useMemo(() => {
+    const cats = new Set<string>();
+    aduData.forEach(item => {
+      if (item.category) {
+        cats.add(item.category);
+      }
+    });
+    return Array.from(cats).sort();
+  }, [aduData]);
+
+  // Filter ADU data based on search and category
+  const filteredAduData = aduData.filter(item => {
+    const matchesSearch = item.itemName.toLowerCase().includes(aduSearchTerm.toLowerCase());
+    const matchesCategory = !aduCategoryFilter || item.category === aduCategoryFilter;
+    return matchesSearch && matchesCategory;
+  });
+
   const isExpired = (expiryDate: string) => {
     return new Date(expiryDate) < new Date();
   };
 
   const isLowStock = (stock: number) => {
     return stock < 10;
+  };
+
+  // Get stock status based on reorder point
+  const getStockStatus = (item: InventoryItem): 'safe' | 'low' | 'critical' => {
+    const reorderPoint = item.reorderPoint;
+    
+    if (reorderPoint === undefined || reorderPoint === 0) {
+      // If no reorder point set, use default thresholds
+      if (item.stock < 10) return 'critical';
+      if (item.stock < 20) return 'low';
+      return 'safe';
+    }
+    
+    // Critical: stock is below reorder point
+    if (item.stock < reorderPoint) return 'critical';
+    
+    // Low: stock is approaching reorder point (within 20% above reorder point)
+    const lowThreshold = reorderPoint * 1.2;
+    if (item.stock <= lowThreshold) return 'low';
+    
+    // Safe: stock is above the low threshold
+    return 'safe';
   };
 
   const handleStockAdjustment = async (item: InventoryItem, adjustment: number) => {
@@ -114,19 +213,59 @@ export function StaffInventory() {
     setAdjustingStock({ item, adjustment });
   };
 
-  const handleReorderPointUpdate = async (item: InventoryItem, reorderPoint: number) => {
-    if (reorderPoint < 0) {
-      toast.error('Reorder point must be a positive number');
+  // Helper function to get ADU for a specific item
+  const getItemADU = (itemName: string): number => {
+    const aduItem = aduData.find(item => item.itemName === itemName);
+    return aduItem ? aduItem.averageDailyUse : 0;
+  };
+
+  // Calculate reorder point: (ADU × LeadTime) + SafetyStock
+  const calculateReorderPoint = (item: InventoryItem, leadTime: string, safetyStock: string): number => {
+    const adu = getItemADU(item.name);
+    const leadTimeNum = leadTime === '' ? 0 : parseInt(leadTime) || 0;
+    const safetyStockNum = safetyStock === '' ? 0 : parseInt(safetyStock) || 0;
+    return Math.round((adu * leadTimeNum) + safetyStockNum);
+  };
+
+  // Initialize modal values when item changes
+  useEffect(() => {
+    if (editingReorderPoint) {
+      setLeadTimeValue(editingReorderPoint.leadTime?.toString() || '');
+      setSafetyStockValue(editingReorderPoint.safetyStock?.toString() || '');
+    }
+  }, [editingReorderPoint]);
+
+  const handleReorderPointUpdate = async (
+    item: InventoryItem,
+    leadTime?: number,
+    safetyStock?: number
+  ) => {
+    if (leadTime !== undefined && leadTime < 0) {
+      toast.error('Lead time must be a positive number');
+      return;
+    }
+    if (safetyStock !== undefined && safetyStock < 0) {
+      toast.error('Safety stock must be a positive number');
       return;
     }
 
     try {
-      await updateItem(item.id, { reorderPoint });
-      toast.success('Reorder point updated successfully');
+      // Calculate reorder point: (ADU × LeadTime) + SafetyStock
+      const adu = getItemADU(item.name);
+      const leadTimeValue = leadTime || 0;
+      const safetyStockValue = safetyStock || 0;
+      const calculatedReorderPoint = Math.round((adu * leadTimeValue) + safetyStockValue);
+
+      const updates: Partial<InventoryItem> = { reorderPoint: calculatedReorderPoint };
+      if (leadTime !== undefined) updates.leadTime = leadTime;
+      if (safetyStock !== undefined) updates.safetyStock = safetyStock;
+      
+      await updateItem(item.id, updates);
+      toast.success('Inventory settings updated successfully');
       setEditingReorderPoint(null);
     } catch (error) {
-      console.error('Failed to update reorder point:', error);
-      toast.error('Failed to update reorder point. Please try again.');
+      console.error('Failed to update inventory settings:', error);
+      toast.error('Failed to update inventory settings. Please try again.');
     }
   };
 
@@ -303,6 +442,17 @@ export function StaffInventory() {
             Current Stock
           </button>
           <button
+            onClick={() => setActiveTab('adu')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${
+              activeTab === 'adu'
+                ? 'border-purple-500 text-purple-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <TrendingUp className="h-5 w-5" />
+            Average Daily Use
+          </button>
+          <button
             onClick={() => setActiveTab('pending')}
             className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 relative ${
               activeTab === 'pending'
@@ -364,11 +514,12 @@ export function StaffInventory() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expiry</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredItems.map((item) => (
-                  <tr key={item.id} className={isExpired(item.expiryDate) ? 'bg-gray-50 opacity-60' : ''}>
+                  <tr key={item.id} className={`hover:bg-purple-100 transition-colors ${isExpired(item.expiryDate) ? 'bg-gray-50 opacity-60' : ''}`}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <Package className="h-8 w-8 text-gray-400 mr-3" />
@@ -414,6 +565,26 @@ export function StaffInventory() {
                         </button>
                       </div>
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {getStockStatus(item) === 'safe' && (
+                        <span className="flex items-center gap-1">
+                          <span className="text-green-600">🟢</span>
+                          <span className="text-gray-700">Safe</span>
+                        </span>
+                      )}
+                      {getStockStatus(item) === 'low' && (
+                        <span className="flex items-center gap-1">
+                          <span className="text-yellow-600">🟡</span>
+                          <span className="text-gray-700">Low</span>
+                        </span>
+                      )}
+                      {getStockStatus(item) === 'critical' && (
+                        <span className="flex items-center gap-1">
+                          <span className="text-red-600">🔴</span>
+                          <span className="text-gray-700">Critical</span>
+                        </span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -451,6 +622,29 @@ export function StaffInventory() {
                     <span className="text-gray-500">Expiry:</span>
                     <p className={`font-medium ${isExpired(item.expiryDate) ? 'text-red-600' : 'text-gray-900'}`}>
                       {new Date(item.expiryDate).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Status:</span>
+                    <p className="font-medium">
+                      {getStockStatus(item) === 'safe' && (
+                        <span className="flex items-center gap-1 text-green-600">
+                          <span>🟢</span>
+                          <span>Safe</span>
+                        </span>
+                      )}
+                      {getStockStatus(item) === 'low' && (
+                        <span className="flex items-center gap-1 text-yellow-600">
+                          <span>🟡</span>
+                          <span>Low</span>
+                        </span>
+                      )}
+                      {getStockStatus(item) === 'critical' && (
+                        <span className="flex items-center gap-1 text-red-600">
+                          <span>🔴</span>
+                          <span>Critical</span>
+                        </span>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -645,14 +839,14 @@ export function StaffInventory() {
         </div>
       )}
 
-      {/* Reorder Point / Target Level Modal */}
+      {/* Reorder Point / Lead Time / Safety Stock Modal */}
       {editingReorderPoint && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex min-h-screen items-center justify-center p-4">
             <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setEditingReorderPoint(null)} />
             <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full">
               <div className="p-6 border-b">
-                <h3 className="text-lg font-semibold text-gray-900">Set Reorder Point</h3>
+                <h3 className="text-lg font-semibold text-gray-900">Inventory Settings</h3>
                 <p className="text-sm text-gray-600 mt-1">{editingReorderPoint.name}</p>
               </div>
               <div className="p-6 space-y-4">
@@ -660,20 +854,49 @@ export function StaffInventory() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Current Stock: <span className="font-bold">{editingReorderPoint.stock}</span>
                   </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Average Daily Use: <span className="font-bold">{getItemADU(editingReorderPoint.name).toFixed(2)}</span>
+                  </label>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Reorder Point
+                    Lead Time (days)
                   </label>
                   <input
                     type="number"
                     min="0"
-                    defaultValue={editingReorderPoint.reorderPoint || 0}
-                    id="reorder-point"
+                    value={leadTimeValue}
+                    onChange={(e) => setLeadTimeValue(e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter reorder point"
+                    placeholder="Enter lead time in days"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Stock level at which to reorder</p>
+                  <p className="text-xs text-gray-500 mt-1">Number of days to receive new stock after ordering</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Safety Stock
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={safetyStockValue}
+                    onChange={(e) => setSafetyStockValue(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter safety stock"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Extra stock kept as buffer for unexpected demand</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Reorder Point (Auto-calculated)
+                  </label>
+                  <input
+                    type="number"
+                    value={calculateReorderPoint(editingReorderPoint, leadTimeValue, safetyStockValue)}
+                    readOnly
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 cursor-not-allowed"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Calculated as: (ADU × Lead Time) + Safety Stock</p>
                 </div>
                 <div className="flex gap-3 pt-4">
                   <button
@@ -684,9 +907,9 @@ export function StaffInventory() {
                   </button>
                   <button
                     onClick={() => {
-                      const reorderPointInput = document.getElementById('reorder-point') as HTMLInputElement;
-                      const reorderPoint = parseInt(reorderPointInput.value) || 0;
-                      handleReorderPointUpdate(editingReorderPoint, reorderPoint);
+                      const leadTime = leadTimeValue === '' ? undefined : parseInt(leadTimeValue) || 0;
+                      const safetyStock = safetyStockValue === '' ? undefined : parseInt(safetyStockValue) || 0;
+                      handleReorderPointUpdate(editingReorderPoint, leadTime, safetyStock);
                     }}
                     className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                   >
@@ -728,6 +951,103 @@ export function StaffInventory() {
         onConfirm={handleRejectDeduction}
         appointmentId={selectedDeduction ? generateSequentialAppointmentId(selectedDeduction.appointment.id, appointmentIdMap) : ''}
       />
+
+      {/* Average Daily Use Tab */}
+      {activeTab === 'adu' && (
+        <div className="bg-white rounded-lg shadow-sm border">
+          <div className="p-6">
+            <div className="space-y-6">
+              {/* Filters */}
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <input
+                    type="text"
+                    placeholder="Search items..."
+                    value={aduSearchTerm}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAduSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div className="relative">
+                  <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <select
+                    value={aduCategoryFilter}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setAduCategoryFilter(e.target.value)}
+                    className="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
+                  >
+                    <option value="">All Categories</option>
+                    {aduCategories.map(category => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Desktop Table */}
+              <div className="hidden lg:block overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item Name</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Average Daily Use</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredAduData.map((item, index) => (
+                      <tr key={index} className="hover:bg-purple-100 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <Package className="h-8 w-8 text-gray-400 mr-3" />
+                            <div className="text-sm font-medium text-gray-900">{item.itemName}</div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.category || 'N/A'}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.averageDailyUse.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="lg:hidden space-y-4">
+                {filteredAduData.map((item, index) => (
+                  <div key={index} className="bg-white rounded-lg p-4 shadow-sm border">
+                    <div className="flex items-center mb-3">
+                      <Package className="h-8 w-8 text-gray-400 mr-3" />
+                      <div>
+                        <h3 className="font-medium text-gray-900">{item.itemName}</h3>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-500">Category:</span>
+                        <p className="font-medium">{item.category || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Average Daily Use:</span>
+                        <p className="font-medium text-gray-900">{item.averageDailyUse.toFixed(2)}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {filteredAduData.length === 0 && (
+                <div className="text-center py-12">
+                  <TrendingUp className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No data found</h3>
+                  <p className="text-gray-600">
+                    {aduSearchTerm ? 'Try adjusting your search criteria' : 'No average daily use data available. Item usage data will appear here once items are used in confirmed appointments.'}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

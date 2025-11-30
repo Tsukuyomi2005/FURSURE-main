@@ -17,6 +17,8 @@ export const list = query({
       expiryDate: v.string(),
       reorderPoint: v.optional(v.number()),
       targetLevel: v.optional(v.number()),
+      leadTime: v.optional(v.number()),
+      safetyStock: v.optional(v.number()),
     })
   ),
   handler: async (ctx) => {
@@ -36,6 +38,8 @@ export const add = mutation({
     expiryDate: v.string(),
     reorderPoint: v.optional(v.number()),
     targetLevel: v.optional(v.number()),
+    leadTime: v.optional(v.number()),
+    safetyStock: v.optional(v.number()),
   },
   returns: v.id("inventoryItems"),
   handler: async (ctx, args) => {
@@ -56,6 +60,8 @@ export const update = mutation({
     expiryDate: v.optional(v.string()),
     reorderPoint: v.optional(v.number()),
     targetLevel: v.optional(v.number()),
+    leadTime: v.optional(v.number()),
+    safetyStock: v.optional(v.number()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {

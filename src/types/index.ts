@@ -7,6 +7,8 @@ export interface InventoryItem {
   expiryDate: string;
   reorderPoint?: number;
   targetLevel?: number;
+  leadTime?: number;
+  safetyStock?: number;
 }
 
 export interface Appointment {
