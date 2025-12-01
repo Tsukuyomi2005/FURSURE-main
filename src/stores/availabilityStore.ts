@@ -11,6 +11,8 @@ export interface Availability {
   endTime: string;
   appointmentDuration: number;
   breakTime: number;
+  lunchStartTime?: string;
+  lunchEndTime?: string;
 }
 
 // Helper function to convert Convex document to frontend type
@@ -23,6 +25,8 @@ function convertAvailability(doc: {
   endTime: string;
   appointmentDuration: number;
   breakTime: number;
+  lunchStartTime?: string;
+  lunchEndTime?: string;
 }): Availability {
   return {
     id: doc._id,
@@ -32,6 +36,8 @@ function convertAvailability(doc: {
     endTime: doc.endTime,
     appointmentDuration: doc.appointmentDuration,
     breakTime: doc.breakTime,
+    lunchStartTime: doc.lunchStartTime,
+    lunchEndTime: doc.lunchEndTime,
   };
 }
 
@@ -70,6 +76,8 @@ export function useAvailabilityStore(veterinarianName?: string) {
       endTime: data.endTime,
       appointmentDuration: data.appointmentDuration,
       breakTime: data.breakTime,
+      lunchStartTime: data.lunchStartTime,
+      lunchEndTime: data.lunchEndTime,
     });
   };
 

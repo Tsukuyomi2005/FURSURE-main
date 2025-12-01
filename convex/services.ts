@@ -13,6 +13,7 @@ export const list = query({
       name: v.string(),
       description: v.string(),
       price: v.number(),
+      durationMinutes: v.optional(v.number()),
     })
   ),
   handler: async (ctx) => {
@@ -28,6 +29,7 @@ export const add = mutation({
     name: v.string(),
     description: v.string(),
     price: v.number(),
+    durationMinutes: v.optional(v.number()),
   },
   returns: v.id("services"),
   handler: async (ctx, args) => {
@@ -44,6 +46,7 @@ export const update = mutation({
     name: v.optional(v.string()),
     description: v.optional(v.string()),
     price: v.optional(v.number()),
+    durationMinutes: v.optional(v.number()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {

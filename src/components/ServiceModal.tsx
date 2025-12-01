@@ -15,6 +15,7 @@ export function ServiceModal({ isOpen, onClose, service }: ServiceModalProps) {
     name: '',
     description: '',
     price: 0,
+    durationMinutes: '', // keep as string so input can be cleared
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -25,12 +26,14 @@ export function ServiceModal({ isOpen, onClose, service }: ServiceModalProps) {
         name: service.name,
         description: service.description,
         price: service.price,
+        durationMinutes: service.durationMinutes != null ? String(service.durationMinutes) : '',
       });
     } else {
       setFormData({
         name: '',
         description: '',
         price: 0,
+        durationMinutes: '',
       });
     }
     setErrors({});
@@ -48,6 +51,10 @@ export function ServiceModal({ isOpen, onClose, service }: ServiceModalProps) {
     if (formData.price <= 0) {
       newErrors.price = 'Price must be greater than 0';
     }
+    const durationValue = Number(formData.durationMinutes);
+    if (!formData.durationMinutes || Number.isNaN(durationValue) || durationValue <= 0) {
+      newErrors.durationMinutes = 'Duration must be greater than 0 minutes';
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -60,10 +67,17 @@ export function ServiceModal({ isOpen, onClose, service }: ServiceModalProps) {
 
     setIsSubmitting(true);
     try {
+      const durationValue = Number(formData.durationMinutes);
+      const payload = {
+        name: formData.name,
+        description: formData.description,
+        price: formData.price,
+        durationMinutes: durationValue,
+      };
       if (service) {
-        await updateService(service.id, formData);
+        await updateService(service.id, payload);
       } else {
-        await addService(formData);
+        await addService(payload);
       }
       onClose();
     } catch (error) {
@@ -142,6 +156,26 @@ export function ServiceModal({ isOpen, onClose, service }: ServiceModalProps) {
                 placeholder="0.00"
               />
               {errors.price && <p className="text-red-500 text-sm mt-1">{errors.price}</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Duration (minutes) *
+              </label>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={formData.durationMinutes}
+                onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                  setFormData({ ...formData, durationMinutes: e.target.value })
+                }
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  errors.durationMinutes ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder="e.g. 30"
+              />
+              {errors.durationMinutes && <p className="text-red-500 text-sm mt-1">{errors.durationMinutes}</p>}
             </div>
 
             {errors.submit && (

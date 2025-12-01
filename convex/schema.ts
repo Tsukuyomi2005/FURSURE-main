@@ -73,6 +73,7 @@ const applicationTables = {
     name: v.string(),
     description: v.string(),
     price: v.number(),
+    durationMinutes: v.optional(v.number()),
   }),
   staff: defineTable({
     name: v.string(),
@@ -89,6 +90,8 @@ const applicationTables = {
     endTime: v.string(),
     appointmentDuration: v.number(),
     breakTime: v.number(),
+    lunchStartTime: v.optional(v.string()),
+    lunchEndTime: v.optional(v.string()),
   }).index("by_veterinarian", ["veterinarianName"]),
   users: defineTable({
     username: v.string(),

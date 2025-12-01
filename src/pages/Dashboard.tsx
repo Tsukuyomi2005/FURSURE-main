@@ -1,6 +1,7 @@
 import { Calendar, Package, Users, DollarSign, Heart, Stethoscope } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useInventoryStore } from '../stores/inventoryStore';
+import type { InventoryItem } from '../types';
 import { useAppointmentStore } from '../stores/appointmentStore';
 import { useRoleStore } from '../stores/roleStore';
 import { usePetRecordsStore } from '../stores/petRecordsStore';
@@ -85,7 +86,30 @@ export function Dashboard() {
     return 'bg-gray-100 text-gray-800';
   };
 
-  const lowStockItems = items.filter(item => item.stock < 10);
+  const getStockStatus = (item: InventoryItem): 'safe' | 'low' | 'critical' => {
+    const reorderPoint = item.reorderPoint;
+    
+    if (reorderPoint === undefined || reorderPoint === 0) {
+      // If no reorder point set, use default thresholds
+      if (item.stock < 10) return 'critical';
+      if (item.stock < 20) return 'low';
+      return 'safe';
+    }
+    
+    // Critical: stock is below reorder point
+    if (item.stock < reorderPoint) return 'critical';
+    
+    // Low: stock is approaching reorder point (within 20% above reorder point)
+    const lowThreshold = reorderPoint * 1.2;
+    if (item.stock < lowThreshold) return 'low';
+    
+    return 'safe';
+  };
+
+  const lowStockItems = items.filter(item => {
+    const status = getStockStatus(item as InventoryItem);
+    return status === 'low' || status === 'critical';
+  });
   const todayAppointments = appointments.filter(apt => {
     const today = new Date().toDateString();
     return new Date(apt.date).toDateString() === today;

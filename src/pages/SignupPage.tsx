@@ -86,9 +86,10 @@ export function SignupPage() {
     try {
       // Register user in Convex (use email as username)
       try {
+        const normalizedEmail = formData.email.trim().toLowerCase();
         await registerOwner({
-          username: formData.email, // Use email as username for login
-          email: formData.email,
+          username: normalizedEmail, // Use normalized email as username for login
+          email: normalizedEmail,
           password: formData.password, // In production, hash this
           firstName: formData.firstName,
           lastName: formData.lastName,
@@ -102,9 +103,10 @@ export function SignupPage() {
 
       // Store user credentials locally (for demo - in production use proper auth)
       const storedUsers = JSON.parse(localStorage.getItem('fursure_users') || '{}');
-      storedUsers[formData.email] = {
-        username: formData.email, // Email is used as username
-        email: formData.email,
+      const emailKey = formData.email.trim().toLowerCase();
+      storedUsers[emailKey] = {
+        username: emailKey, // Normalized email is used as username
+        email: emailKey,
         password: formData.password, // In production, never store plain passwords
         role: 'owner',
         firstName: formData.firstName,
@@ -117,8 +119,8 @@ export function SignupPage() {
       // Set role and store current user (include email for filtering)
       setRole('owner');
       localStorage.setItem('fursure_current_user', JSON.stringify({
-        username: formData.email, // Email is used as username
-        email: formData.email, // Store email explicitly for filtering
+        username: emailKey, // Normalized email is used as username
+        email: emailKey, // Store email explicitly for filtering
         role: 'owner',
       }));
 

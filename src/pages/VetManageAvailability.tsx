@@ -33,8 +33,8 @@ export function VetManageAvailability() {
     workingDays: [] as string[],
     startTime: '10:00',
     endTime: '17:00',
-    appointmentDuration: 45,
-    breakTime: 30,
+    lunchStartTime: '',
+    lunchEndTime: '',
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -46,8 +46,8 @@ export function VetManageAvailability() {
         workingDays: availability.workingDays,
         startTime: availability.startTime,
         endTime: availability.endTime,
-        appointmentDuration: availability.appointmentDuration,
-        breakTime: availability.breakTime,
+        lunchStartTime: availability.lunchStartTime || '',
+        lunchEndTime: availability.lunchEndTime || '',
       });
       hasInitialized.current = true;
     } else if (!availability) {
@@ -99,12 +99,22 @@ export function VetManageAvailability() {
       }
     }
 
-    if (formData.appointmentDuration <= 0) {
-      newErrors.appointmentDuration = 'Appointment duration must be greater than 0';
-    }
+    // Validate lunch break window if provided
+    if (formData.lunchStartTime || formData.lunchEndTime) {
+      if (!formData.lunchStartTime || !formData.lunchEndTime) {
+        newErrors.lunchBreak = 'Please set both start and end time for lunch break';
+      } else {
+        const workStart = parseTime(formData.startTime);
+        const workEnd = parseTime(formData.endTime);
+        const lunchStart = parseTime(formData.lunchStartTime);
+        const lunchEnd = parseTime(formData.lunchEndTime);
 
-    if (formData.breakTime < 0) {
-      newErrors.breakTime = 'Break time cannot be negative';
+        if (lunchStart >= lunchEnd) {
+          newErrors.lunchBreak = 'Lunch end time must be after lunch start time';
+        } else if (lunchStart < workStart || lunchEnd > workEnd) {
+          newErrors.lunchBreak = 'Lunch break must be within working hours';
+        }
+      }
     }
 
     setErrors(newErrors);
@@ -135,8 +145,10 @@ export function VetManageAvailability() {
         workingDays: formData.workingDays,
         startTime: formData.startTime,
         endTime: formData.endTime,
-        appointmentDuration: formData.appointmentDuration,
-        breakTime: formData.breakTime,
+        appointmentDuration: availability?.appointmentDuration ?? 30,
+        breakTime: availability?.breakTime ?? 0,
+        lunchStartTime: formData.lunchStartTime || undefined,
+        lunchEndTime: formData.lunchEndTime || undefined,
       });
       toast.success('Availability saved successfully');
     } catch (error) {
@@ -227,49 +239,34 @@ export function VetManageAvailability() {
                   )}
                 </div>
 
-                {/* Appointment Duration */}
+                {/* Lunch Break */}
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Appointment Duration
+                    Lunch Break
                   </label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      min="15"
-                      step="15"
-                      value={formData.appointmentDuration}
-                      onChange={(e) => setFormData({ ...formData, appointmentDuration: parseInt(e.target.value) || 0 })}
-                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                        errors.appointmentDuration ? 'border-red-500' : 'border-gray-300'
-                      }`}
-                    />
-                    <span className="absolute right-3 top-2.5 text-gray-500 text-sm">minutes</span>
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1 relative">
+                      <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none z-10" />
+                      <input
+                        type="time"
+                        value={formData.lunchStartTime}
+                        onChange={(e) => setFormData({ ...formData, lunchStartTime: e.target.value })}
+                        className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300"
+                      />
+                    </div>
+                    <span className="text-gray-600 font-medium">to</span>
+                    <div className="flex-1 relative">
+                      <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none z-10" />
+                      <input
+                        type="time"
+                        value={formData.lunchEndTime}
+                        onChange={(e) => setFormData({ ...formData, lunchEndTime: e.target.value })}
+                        className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300"
+                      />
+                    </div>
                   </div>
-                  {errors.appointmentDuration && (
-                    <p className="text-red-500 text-sm mt-1">{errors.appointmentDuration}</p>
-                  )}
-                </div>
-
-                {/* Break Time */}
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Break Time
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      min="0"
-                      step="15"
-                      value={formData.breakTime}
-                      onChange={(e) => setFormData({ ...formData, breakTime: parseInt(e.target.value) || 0 })}
-                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                        errors.breakTime ? 'border-red-500' : 'border-gray-300'
-                      }`}
-                    />
-                    <span className="absolute right-3 top-2.5 text-gray-500 text-sm">minutes</span>
-                  </div>
-                  {errors.breakTime && (
-                    <p className="text-red-500 text-sm mt-1">{errors.breakTime}</p>
+                  {errors.lunchBreak && (
+                    <p className="text-red-500 text-sm mt-1">{errors.lunchBreak}</p>
                   )}
                 </div>
               </div>
@@ -284,16 +281,16 @@ export function VetManageAvailability() {
                     workingDays: availability.workingDays,
                     startTime: availability.startTime,
                     endTime: availability.endTime,
-                    appointmentDuration: availability.appointmentDuration,
-                    breakTime: availability.breakTime,
+                    lunchStartTime: availability.lunchStartTime || '',
+                    lunchEndTime: availability.lunchEndTime || '',
                   });
                 } else {
                   setFormData({
                     workingDays: [],
                     startTime: '10:00',
                     endTime: '17:00',
-                    appointmentDuration: 45,
-                    breakTime: 30,
+                    lunchStartTime: '',
+                    lunchEndTime: '',
                   });
                 }
                 setErrors({});

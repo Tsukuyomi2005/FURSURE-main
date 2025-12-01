@@ -37,22 +37,12 @@ export function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      // Authenticate user using Convex query
-      // Note: In production, this should use proper authentication with password hashing
-      // For now, we'll use a simple approach - you'll need to implement proper auth
-      const authResult = await fetch('/api/authenticate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: formData.email, // Email is used as username
-          password: formData.password,
-        }),
-      }).catch(() => null);
-
       // For now, we'll use a client-side approach with localStorage
       // In production, integrate with Convex Auth properly
       const storedUsers = JSON.parse(localStorage.getItem('fursure_users') || '{}');
-      const user = storedUsers[formData.email]; // Use email as key
+      const emailKey = formData.email.trim().toLowerCase();
+      // Prefer normalized key but fall back to raw email for older stored data
+      const user = storedUsers[emailKey] || storedUsers[formData.email];
 
       if (user && user.password === formData.password) {
         // Set role based on user account

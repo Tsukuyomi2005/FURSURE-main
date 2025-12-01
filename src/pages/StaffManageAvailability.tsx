@@ -125,6 +125,8 @@ export function StaffManageAvailability() {
         endTime: formData.endTime,
         appointmentDuration: 0, // Clinic staff don't need appointment duration
         breakTime: 0, // Clinic staff don't need break time
+        lunchStartTime: undefined,
+        lunchEndTime: undefined,
       });
       toast.success('Availability saved successfully');
     } catch (error) {

@@ -1,10 +1,13 @@
 import { useState, useMemo } from 'react';
-import { Filter, ChevronLeft, ChevronRight, Calendar, Clock } from 'lucide-react';
+import { Filter, ChevronLeft, ChevronRight, Calendar, Clock, Hourglass, CheckCircle, X } from 'lucide-react';
 import { useAvailabilityStore } from '../stores/availabilityStore';
 import { useStaffStore } from '../stores/staffStore';
 import { useAppointmentStore } from '../stores/appointmentStore';
 import { useServiceStore } from '../stores/serviceStore';
 import { useRoleStore } from '../stores/roleStore';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+import { toast } from 'sonner';
+import type { Appointment } from '../types';
 
 // Get veterinarian's full name from localStorage
 const getVetName = () => {
@@ -30,12 +33,20 @@ const getVetName = () => {
 export function ScheduleManagement() {
   const { allAvailability } = useAvailabilityStore();
   const { staff } = useStaffStore();
-  const { appointments } = useAppointmentStore();
+  const { appointments, updateAppointment } = useAppointmentStore();
   const { services } = useServiceStore();
   const { role } = useRoleStore();
   
   const isVeterinarian = role === 'veterinarian';
+  const isAdmin = role === 'vet' || role === 'staff';
   const currentVetName = useMemo(() => isVeterinarian ? getVetName() : null, [isVeterinarian]);
+  
+  const [appointmentToConfirm, setAppointmentToConfirm] = useState<Appointment | null>(null);
+  const [appointmentToReject, setAppointmentToReject] = useState<Appointment | null>(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   
   // Get service name from service ID
   const getServiceName = (serviceId: string | undefined): string => {
@@ -215,6 +226,82 @@ export function ScheduleManagement() {
     setFilterPosition('all');
     setFilterDateRange('this-week');
     setFilterStatus('all');
+  };
+
+  // Get pending appointments (only for admin)
+  const pendingAppointments = useMemo(() => {
+    if (!isAdmin) return [];
+    return appointments
+      .filter(apt => apt.status === 'pending')
+      .sort((a, b) => {
+        const dateCompare = a.date.localeCompare(b.date);
+        if (dateCompare !== 0) return dateCompare;
+        return a.time.localeCompare(b.time);
+      });
+  }, [appointments, isAdmin]);
+
+  // Format date for display
+  const formatDateDisplay = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  };
+
+  // Handle confirm appointment
+  const handleConfirmClick = (appointment: Appointment) => {
+    setAppointmentToConfirm(appointment);
+    setShowConfirmDialog(true);
+  };
+
+  const handleConfirmAppointment = async () => {
+    if (!appointmentToConfirm) return;
+
+    try {
+      await updateAppointment(appointmentToConfirm.id, { status: 'approved' });
+      setShowConfirmDialog(false);
+      setSuccessMessage('Appointment confirmed successfully');
+      setShowSuccessPopup(true);
+      setTimeout(() => {
+        setShowSuccessPopup(false);
+        setAppointmentToConfirm(null);
+        setSuccessMessage('');
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to confirm appointment:', error);
+      toast.error('Failed to confirm appointment. Please try again.');
+      setShowConfirmDialog(false);
+      setAppointmentToConfirm(null);
+    }
+  };
+
+  // Handle reject appointment
+  const handleRejectClick = (appointment: Appointment) => {
+    setAppointmentToReject(appointment);
+    setShowRejectDialog(true);
+  };
+
+  const handleRejectAppointment = async () => {
+    if (!appointmentToReject) return;
+
+    try {
+      await updateAppointment(appointmentToReject.id, { status: 'rejected' });
+      setShowRejectDialog(false);
+      setSuccessMessage('Appointment rejected successfully');
+      setShowSuccessPopup(true);
+      setTimeout(() => {
+        setShowSuccessPopup(false);
+        setAppointmentToReject(null);
+        setSuccessMessage('');
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to reject appointment:', error);
+      toast.error('Failed to reject appointment. Please try again.');
+      setShowRejectDialog(false);
+      setAppointmentToReject(null);
+    }
   };
 
   return (
@@ -444,6 +531,135 @@ export function ScheduleManagement() {
           )}
         </div>
       </div>
+
+      {/* Pending Appointments Table (Admin Only) */}
+      {isAdmin && (
+        <div className="bg-white rounded-lg shadow-sm border">
+          <div className="p-6 border-b">
+            <div className="flex items-center gap-2">
+              <Hourglass className="h-5 w-5 text-gray-600" />
+              <h2 className="text-lg font-semibold text-gray-900">Pending Appointments</h2>
+            </div>
+          </div>
+          <div className="p-6">
+            {pendingAppointments.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <Hourglass className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No pending appointments</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date & Time</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pet Owner</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pet Name</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Veterinarian</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Service</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {pendingAppointments.map((apt) => (
+                      <tr key={apt.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{formatDateDisplay(apt.date)}</div>
+                          <div className="text-sm text-gray-600">{formatTime12Hour(formatTime24Hour(apt.time))}</div>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{apt.ownerName}</div>
+                          <div className="text-sm text-gray-600">{apt.phone}</div>
+                          <div className="text-sm text-gray-600">{apt.email}</div>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{apt.petName}</div>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{apt.vet}</div>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{apt.serviceType ? getServiceName(apt.serviceType) : 'N/A'}</div>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleConfirmClick(apt)}
+                              className="px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1"
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                              Confirm
+                            </button>
+                            <button
+                              onClick={() => handleRejectClick(apt)}
+                              className="px-3 py-1.5 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors flex items-center gap-1"
+                            >
+                              <X className="h-4 w-4" />
+                              Reject
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showConfirmDialog}
+        onClose={() => {
+          setShowConfirmDialog(false);
+          setAppointmentToConfirm(null);
+        }}
+        onConfirm={handleConfirmAppointment}
+        title="Confirm Appointment"
+        message={`Are you sure you want to confirm the appointment with ${appointmentToConfirm?.ownerName} on ${appointmentToConfirm ? formatDateDisplay(appointmentToConfirm.date) : ''} at ${appointmentToConfirm ? formatTime12Hour(formatTime24Hour(appointmentToConfirm.time)) : ''}?`}
+        confirmText="Confirm"
+        cancelText="Cancel"
+        confirmVariant="green"
+      />
+
+      {/* Rejection Dialog */}
+      <ConfirmDialog
+        isOpen={showRejectDialog}
+        onClose={() => {
+          setShowRejectDialog(false);
+          setAppointmentToReject(null);
+        }}
+        onConfirm={handleRejectAppointment}
+        title="Reject Appointment"
+        message={`Are you sure you want to reject the appointment with ${appointmentToReject?.ownerName} on ${appointmentToReject ? formatDateDisplay(appointmentToReject.date) : ''} at ${appointmentToReject ? formatTime12Hour(formatTime24Hour(appointmentToReject.time)) : ''}?`}
+        confirmText="Reject"
+        cancelText="Cancel"
+        confirmVariant="red"
+      />
+
+      {/* Success Popup */}
+      {showSuccessPopup && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex min-h-screen items-center justify-center p-4">
+            <div className="fixed inset-0 bg-gray-600 bg-opacity-75" />
+            <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full p-8">
+              <div className="flex flex-col items-center text-center">
+                <div className="p-3 bg-green-100 rounded-full mb-4">
+                  <CheckCircle className="h-12 w-12 text-green-600" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                  {successMessage || 'Success'}
+                </h3>
+                <p className="text-gray-600">
+                  The appointment has been processed successfully.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

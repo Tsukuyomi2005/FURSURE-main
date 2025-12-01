@@ -11,12 +11,14 @@ function convertService(doc: {
   name: string;
   description: string;
   price: number;
+  durationMinutes?: number;
 }): Service {
   return {
     id: doc._id,
     name: doc.name,
     description: doc.description,
     price: doc.price,
+    durationMinutes: doc.durationMinutes,
   };
 }
 
@@ -37,6 +39,7 @@ export function useServiceStore() {
       name: service.name,
       description: service.description,
       price: service.price,
+      durationMinutes: service.durationMinutes,
     });
   };
 
@@ -46,6 +49,7 @@ export function useServiceStore() {
       name?: string;
       description?: string;
       price?: number;
+      durationMinutes?: number;
     } = {
       id: id as Id<"services">,
     };
@@ -53,6 +57,7 @@ export function useServiceStore() {
     if (updates.name !== undefined) updateData.name = updates.name;
     if (updates.description !== undefined) updateData.description = updates.description;
     if (updates.price !== undefined) updateData.price = updates.price;
+    if (updates.durationMinutes !== undefined) updateData.durationMinutes = updates.durationMinutes;
 
     await updateServiceMutation(updateData);
   };

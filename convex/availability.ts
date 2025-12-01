@@ -18,6 +18,8 @@ export const getByVeterinarian = query({
       endTime: v.string(),
       appointmentDuration: v.number(),
       breakTime: v.number(),
+      lunchStartTime: v.optional(v.string()),
+      lunchEndTime: v.optional(v.string()),
     }),
     v.null()
   ),
@@ -45,6 +47,8 @@ export const list = query({
       endTime: v.string(),
       appointmentDuration: v.number(),
       breakTime: v.number(),
+      lunchStartTime: v.optional(v.string()),
+      lunchEndTime: v.optional(v.string()),
     })
   ),
   handler: async (ctx) => {
@@ -63,6 +67,8 @@ export const upsert = mutation({
     endTime: v.string(),
     appointmentDuration: v.number(),
     breakTime: v.number(),
+    lunchStartTime: v.optional(v.string()),
+    lunchEndTime: v.optional(v.string()),
   },
   returns: v.id("availability"),
   handler: async (ctx, args) => {
@@ -80,6 +86,8 @@ export const upsert = mutation({
         endTime: args.endTime,
         appointmentDuration: args.appointmentDuration,
         breakTime: args.breakTime,
+        lunchStartTime: args.lunchStartTime,
+        lunchEndTime: args.lunchEndTime,
       });
       return existing._id;
     } else {

@@ -1,10 +1,8 @@
 import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Hourglass, CheckCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { useAppointmentStore } from '../stores/appointmentStore';
 import { useAvailabilityStore } from '../stores/availabilityStore';
 import { useServiceStore } from '../stores/serviceStore';
-import { ConfirmDialog } from '../components/ConfirmDialog';
-import { toast } from 'sonner';
 import type { Appointment } from '../types';
 
 // Get veterinarian's full name from localStorage
@@ -44,9 +42,6 @@ export function VetMyAppointments() {
   });
 
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
-  const [appointmentToConfirm, setAppointmentToConfirm] = useState<Appointment | null>(null);
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
 
   // Filter appointments for this veterinarian only
   const vetAppointments = useMemo(() => {
@@ -188,42 +183,18 @@ export function VetMyAppointments() {
 
   const statusCounts = getStatusCounts();
 
-  // Get pending appointments for the table
-  const pendingAppointments = useMemo(() => {
+  // Get upcoming appointments (approved appointments with date >= today)
+  const upcomingAppointments = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0];
     return appointments
-      .filter(apt => apt.vet === currentVetName && apt.status === 'pending')
+      .filter(apt => apt.vet === currentVetName && apt.status === 'approved' && apt.date >= today)
       .sort((a, b) => {
         const dateCompare = a.date.localeCompare(b.date);
         if (dateCompare !== 0) return dateCompare;
         return a.time.localeCompare(b.time);
-      });
+      })
+      .slice(0, 10); // Show up to 10 upcoming appointments
   }, [appointments, currentVetName]);
-
-  // Handle confirm appointment
-  const handleConfirmClick = (appointment: Appointment) => {
-    setAppointmentToConfirm(appointment);
-    setShowConfirmDialog(true);
-  };
-
-  const handleConfirmAppointment = async () => {
-    if (!appointmentToConfirm) return;
-
-    try {
-      await updateAppointment(appointmentToConfirm.id, { status: 'approved' });
-      setShowConfirmDialog(false);
-      setShowSuccessPopup(true);
-      // Auto close success popup after 2 seconds
-      setTimeout(() => {
-        setShowSuccessPopup(false);
-        setAppointmentToConfirm(null);
-      }, 2000);
-    } catch (error) {
-      console.error('Failed to confirm appointment:', error);
-      toast.error('Failed to confirm appointment. Please try again.');
-      setShowConfirmDialog(false);
-      setAppointmentToConfirm(null);
-    }
-  };
 
   // Format date for display
   const formatDateDisplay = (dateStr: string): string => {
@@ -382,57 +353,44 @@ export function VetMyAppointments() {
         </div>
       </div>
 
-      {/* Pending Appointments */}
+      {/* Upcoming Appointments */}
       <div className="bg-white rounded-lg shadow-sm border">
         <div className="p-6 border-b">
           <div className="flex items-center gap-2">
-            <Hourglass className="h-5 w-5 text-gray-600" />
-            <h2 className="text-lg font-semibold text-gray-900">Pending Appointments</h2>
+            <Calendar className="h-5 w-5 text-gray-600" />
+            <h2 className="text-lg font-semibold text-gray-900">Upcoming Appointments</h2>
           </div>
         </div>
         <div className="p-6">
-          {pendingAppointments.length === 0 ? (
+          {upcomingAppointments.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
-              <p>No pending appointments</p>
+              <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>No upcoming appointments</p>
             </div>
           ) : (
             <div className="space-y-4">
-              {pendingAppointments.map((apt) => (
+              {upcomingAppointments.map((apt) => (
                 <div
                   key={apt.id}
-                  className="flex items-center justify-between p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors"
+                  className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                 >
-                  {/* Left side: Date, Time, and Action buttons */}
-                  <div className="flex flex-col gap-2">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium text-gray-900">
-                        {formatDateDisplay(apt.date)}
-                      </span>
-                      <span className="text-sm text-gray-600">
-                        {formatTime12Hour(formatTime24Hour(apt.time))}
-                      </span>
+                  <div className="flex items-center gap-4">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <Calendar className="h-5 w-5 text-blue-600" />
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="px-3 py-1 text-xs font-medium rounded-lg bg-yellow-100 border border-yellow-200 text-yellow-800">
-                        Pending
-                      </span>
-                      <button
-                        onClick={() => handleConfirmClick(apt)}
-                        className="px-4 py-1.5 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors"
-                      >
-                        Confirm
-                      </button>
+                    <div>
+                      <div className="font-medium text-gray-900">{apt.petName}</div>
+                      <div className="text-sm text-gray-600">{apt.ownerName}</div>
+                      {apt.serviceType && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          {getServiceName(apt.serviceType)}
+                        </div>
+                      )}
                     </div>
                   </div>
-
-                  {/* Right side: Owner name and Service */}
-                  <div className="flex flex-col items-end text-right">
-                    <span className="text-sm font-semibold text-gray-900">
-                      {apt.ownerName}
-                    </span>
-                    <span className="text-sm text-gray-600">
-                      {apt.serviceType ? getServiceName(apt.serviceType) : 'N/A'}
-                    </span>
+                  <div className="text-right">
+                    <div className="font-medium text-gray-900">{formatDateDisplay(apt.date)}</div>
+                    <div className="text-sm text-gray-600">{formatTime12Hour(formatTime24Hour(apt.time))}</div>
                   </div>
                 </div>
               ))}
@@ -440,43 +398,6 @@ export function VetMyAppointments() {
           )}
         </div>
       </div>
-
-      {/* Confirmation Dialog */}
-      <ConfirmDialog
-        isOpen={showConfirmDialog}
-        onClose={() => {
-          setShowConfirmDialog(false);
-          setAppointmentToConfirm(null);
-        }}
-        onConfirm={handleConfirmAppointment}
-        title="Confirm Appointment"
-        message={`Are you sure you want to confirm the appointment with ${appointmentToConfirm?.ownerName} on ${appointmentToConfirm ? formatDateDisplay(appointmentToConfirm.date) : ''} at ${appointmentToConfirm ? formatTime12Hour(formatTime24Hour(appointmentToConfirm.time)) : ''}?`}
-        confirmText="Confirm"
-        cancelText="Cancel"
-        confirmVariant="purple"
-      />
-
-      {/* Success Popup */}
-      {showSuccessPopup && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex min-h-screen items-center justify-center p-4">
-            <div className="fixed inset-0 bg-gray-600 bg-opacity-75" />
-            <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full p-8">
-              <div className="flex flex-col items-center text-center">
-                <div className="p-3 bg-green-100 rounded-full mb-4">
-                  <CheckCircle className="h-12 w-12 text-green-600" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                  Appointment Confirmed
-                </h3>
-                <p className="text-gray-600">
-                  The appointment has been successfully confirmed.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
