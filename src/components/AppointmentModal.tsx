@@ -72,17 +72,74 @@ export function AppointmentModal({ isOpen, onClose, date, time }: AppointmentMod
     return Array.from(vetsInSchedule).sort();
   })();
 
+  // Get current user email for pet owners
+  const getCurrentUserEmail = (): string => {
+    if (!isPetOwner) return '';
+    try {
+      const currentUserStr = localStorage.getItem('fursure_current_user');
+      if (currentUserStr) {
+        const currentUser = JSON.parse(currentUserStr);
+        // Get email from stored users
+        const storedUsers = JSON.parse(localStorage.getItem('fursure_users') || '{}');
+        const userData = storedUsers[currentUser.username || currentUser.email];
+        return userData?.email || currentUser.email || currentUser.username || '';
+      }
+    } catch (error) {
+      console.error('Error getting current user email:', error);
+    }
+    return '';
+  };
+
+  // Get current user name for pet owners
+  const getCurrentUserName = (): string => {
+    if (!isPetOwner) return '';
+    try {
+      const currentUserStr = localStorage.getItem('fursure_current_user');
+      if (currentUserStr) {
+        const currentUser = JSON.parse(currentUserStr);
+        // Get name from stored users
+        const storedUsers = JSON.parse(localStorage.getItem('fursure_users') || '{}');
+        const userData = storedUsers[currentUser.username || currentUser.email];
+        if (userData) {
+          const fullName = `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
+          return fullName || userData.username || '';
+        }
+      }
+    } catch (error) {
+      console.error('Error getting current user name:', error);
+    }
+    return '';
+  };
+
+  // Get current user phone number for pet owners
+  const getCurrentUserPhone = (): string => {
+    if (!isPetOwner) return '';
+    try {
+      const currentUserStr = localStorage.getItem('fursure_current_user');
+      if (currentUserStr) {
+        const currentUser = JSON.parse(currentUserStr);
+        // Get phone from stored users
+        const storedUsers = JSON.parse(localStorage.getItem('fursure_users') || '{}');
+        const userData = storedUsers[currentUser.username || currentUser.email];
+        return userData?.phone || '';
+      }
+    } catch (error) {
+      console.error('Error getting current user phone:', error);
+    }
+    return '';
+  };
+
   // Reset form when modal opens/closes
   useEffect(() => {
     if (isOpen) {
       // Get first available vet or first active vet
       const defaultVet = availableVets.length > 0 ? availableVets[0] : (allActiveVets.length > 0 ? allActiveVets[0] : '');
-      // Reset form when opening
+      // Reset form when opening - auto-fill email, name, and phone for pet owners
       setFormData({
         petName: '',
-        ownerName: '',
-        phone: '',
-        email: '',
+        ownerName: isPetOwner ? getCurrentUserName() : '',
+        phone: isPetOwner ? getCurrentUserPhone() : '',
+        email: isPetOwner ? getCurrentUserEmail() : '',
         reason: '',
         serviceType: 'consultation',
         vet: defaultVet

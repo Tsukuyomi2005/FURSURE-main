@@ -16,9 +16,14 @@ export function PetRecords() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    deleteRecord(id);
-    setDeleteConfirm(null);
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteRecord(id);
+      setDeleteConfirm(null);
+    } catch (error) {
+      console.error('Failed to delete pet record:', error);
+      // You might want to show an error toast here
+    }
   };
 
   const handleModalClose = () => {

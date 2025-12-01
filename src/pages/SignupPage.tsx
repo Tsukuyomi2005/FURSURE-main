@@ -114,10 +114,11 @@ export function SignupPage() {
       };
       localStorage.setItem('fursure_users', JSON.stringify(storedUsers));
 
-      // Set role and store current user
+      // Set role and store current user (include email for filtering)
       setRole('owner');
       localStorage.setItem('fursure_current_user', JSON.stringify({
         username: formData.email, // Email is used as username
+        email: formData.email, // Store email explicitly for filtering
         role: 'owner',
       }));
 

@@ -81,18 +81,22 @@ export function PetRecordModal({ isOpen, onClose, record }: PetRecordModalProps)
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
     if (!validateForm()) return;
 
-    if (record) {
-      updateRecord(record.id, formData);
-    } else {
-      addRecord(formData);
+    try {
+      if (record) {
+        await updateRecord(record.id, formData);
+      } else {
+        await addRecord(formData);
+      }
+      onClose();
+    } catch (error) {
+      console.error('Failed to save pet record:', error);
+      // You might want to show an error toast here
     }
-    
-    onClose();
   };
 
   const addVaccination = () => {

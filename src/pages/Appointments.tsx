@@ -1,4 +1,4 @@
-import { useState, useMemo, type ChangeEvent } from 'react';
+import { useState, useMemo, useEffect, type ChangeEvent } from 'react';
 import Calendar from 'react-calendar';
 import { Clock, ChevronRight, ChevronLeft, CreditCard, Smartphone, User, Phone, Mail, FileText, Building2 } from 'lucide-react';
 import { useAppointmentStore } from '../stores/appointmentStore';
@@ -50,6 +50,35 @@ export function Appointments() {
   });
   const [showPayment, setShowPayment] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'at_clinic' | 'online'>('at_clinic');
+
+  // Auto-populate email, owner name, and phone number for pet owners
+  useEffect(() => {
+    if (role === 'owner') {
+      try {
+        const currentUserStr = localStorage.getItem('fursure_current_user');
+        if (currentUserStr) {
+          const currentUser = JSON.parse(currentUserStr);
+          const storedUsers = JSON.parse(localStorage.getItem('fursure_users') || '{}');
+          const userData = storedUsers[currentUser.username || currentUser.email];
+          
+          if (userData) {
+            const email = userData.email || currentUser.email || currentUser.username || '';
+            const fullName = `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || userData.username || '';
+            const phone = userData.phone || '';
+            
+            setFormData(prev => ({
+              ...prev,
+              email: email,
+              ownerName: fullName,
+              phone: phone,
+            }));
+          }
+        }
+      } catch (error) {
+        console.error('Error auto-populating user data:', error);
+      }
+    }
+  }, [role]);
 
   // Get day name from date
   const getDayName = (date: Date): string => {

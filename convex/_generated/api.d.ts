@@ -13,6 +13,7 @@ import type * as auth from "../auth.js";
 import type * as availability from "../availability.js";
 import type * as http from "../http.js";
 import type * as inventory from "../inventory.js";
+import type * as petRecords from "../petRecords.js";
 import type * as router from "../router.js";
 import type * as schedules from "../schedules.js";
 import type * as services from "../services.js";
@@ -31,6 +32,7 @@ declare const fullApi: ApiFromModules<{
   availability: typeof availability;
   http: typeof http;
   inventory: typeof inventory;
+  petRecords: typeof petRecords;
   router: typeof router;
   schedules: typeof schedules;
   services: typeof services;

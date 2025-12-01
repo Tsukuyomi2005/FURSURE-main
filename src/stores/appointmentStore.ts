@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import type { Appointment } from '../types';
+import { useRoleStore } from './roleStore';
 
 // Helper function to convert Convex document to frontend type
 function convertAppointment(doc: {
@@ -54,8 +55,42 @@ function convertAppointment(doc: {
 }
 
 export function useAppointmentStore() {
+  const { role } = useRoleStore();
+  
+  // Get current user email from localStorage
+  const getCurrentUserEmail = (): string | undefined => {
+    try {
+      const currentUserStr = localStorage.getItem('fursure_current_user');
+      if (currentUserStr) {
+        const currentUser = JSON.parse(currentUserStr);
+        // Get email from stored users
+        const storedUsers = JSON.parse(localStorage.getItem('fursure_users') || '{}');
+        const userData = storedUsers[currentUser.username || currentUser.email];
+        return userData?.email || currentUser.email || currentUser.username;
+      }
+    } catch (error) {
+      console.error('Error getting current user email:', error);
+    }
+    return undefined;
+  };
+
+  const currentUserEmail = getCurrentUserEmail();
+  
+  // Build query arguments - handle undefined role gracefully
+  const queryArgs = (() => {
+    if (!role) {
+      // If no role, return empty args (will get all appointments - should only happen during initial load)
+      return {};
+    }
+    if (role === 'owner' && currentUserEmail) {
+      return { userEmail: currentUserEmail, userRole: role };
+    }
+    // For staff/vet/admin, pass role but no email filter
+    return { userRole: role };
+  })();
+  
   // @ts-ignore - API types will be generated when Convex syncs
-  const appointmentsData = useQuery(api.appointments.list);
+  const appointmentsData = useQuery(api.appointments.list, queryArgs);
   // @ts-ignore
   const addAppointmentMutation = useMutation(api.appointments.add);
   // @ts-ignore

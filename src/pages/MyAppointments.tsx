@@ -88,7 +88,7 @@ export function MyAppointments() {
     return serviceId;
   };
 
-  // Filter appointments (for pet owners, show all appointments - in real app, filter by logged-in user)
+  // Filter appointments (already filtered by user in the store for pet owners)
   const filteredAppointments = useMemo(() => {
     let filtered = [...appointments];
 

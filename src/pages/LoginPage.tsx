@@ -57,9 +57,10 @@ export function LoginPage() {
       if (user && user.password === formData.password) {
         // Set role based on user account
         setRole(user.role);
-        // Store current user in session
+        // Store current user in session (include email for filtering)
         localStorage.setItem('fursure_current_user', JSON.stringify({
           username: user.username || user.email, // Email is used as username
+          email: user.email, // Store email explicitly for filtering
           role: user.role,
         }));
         toast.success('Login successful');

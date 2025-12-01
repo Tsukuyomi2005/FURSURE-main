@@ -59,7 +59,9 @@ const applicationTables = {
       approvedByName: v.optional(v.string()),
       approvedAt: v.optional(v.string()),
     }))),
-  }).index("by_date", ["date"]),
+  })
+    .index("by_date", ["date"])
+    .index("by_email", ["email"]),
   schedules: defineTable({
     date: v.string(),
     startTime: v.string(),
@@ -105,6 +107,23 @@ const applicationTables = {
   })
     .index("by_username", ["username"])
     .index("by_email", ["email"]),
+  petRecords: defineTable({
+    ownerEmail: v.string(), // Email of the pet owner who owns this record
+    petName: v.string(),
+    breed: v.string(),
+    age: v.number(),
+    weight: v.number(),
+    gender: v.union(v.literal("male"), v.literal("female")),
+    color: v.string(),
+    recentIllness: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    vaccinations: v.optional(v.array(v.object({
+      name: v.string(),
+      date: v.string(),
+    }))),
+    allergies: v.optional(v.array(v.string())),
+  })
+    .index("by_owner_email", ["ownerEmail"]),
 };
 
 export default defineSchema({

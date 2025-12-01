@@ -284,12 +284,6 @@ export function Reports() {
       // Explicitly check for approved status
       if (apt.status !== 'approved') return false;
       
-      // Exclude any appointments that are explicitly cancelled, rejected, or pending
-      // (though these shouldn't have status === 'approved', this is a safety check)
-      if (apt.status === 'cancelled' || apt.status === 'rejected' || apt.status === 'pending') {
-        return false;
-      }
-      
       // Both Confirmed and Completed appointments have status === 'approved'
       // Confirmed: paymentStatus !== 'fully_paid' (or undefined/null)
       // Completed: paymentStatus === 'fully_paid'

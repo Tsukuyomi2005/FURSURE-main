@@ -3,9 +3,14 @@ import { v } from "convex/values";
 
 /**
  * Query all appointments
+ * For pet owners: filters by user email
+ * For staff/vet/admin: returns all appointments
  */
 export const list = query({
-  args: {},
+  args: {
+    userEmail: v.optional(v.string()), // Optional: if provided, filter by email (for pet owners)
+    userRole: v.optional(v.string()), // Optional: user role to determine if filtering is needed
+  },
   returns: v.array(
     v.object({
       _id: v.id("appointments"),
@@ -54,7 +59,16 @@ export const list = query({
       }))),
     })
   ),
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
+    // If user is a pet owner and email is provided, filter by email
+    if (args.userRole === 'owner' && args.userEmail) {
+      return await ctx.db
+        .query("appointments")
+        .withIndex("by_email", (q) => q.eq("email", args.userEmail!))
+        .collect();
+    }
+    
+    // For staff, vet, admin, or when no role is specified - return all appointments
     return await ctx.db.query("appointments").collect();
   },
 });
