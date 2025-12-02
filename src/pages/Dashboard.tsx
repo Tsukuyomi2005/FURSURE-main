@@ -35,6 +35,31 @@ export function Dashboard() {
 
   const hasFullAccess = role === 'vet' || role === 'staff';
 
+  // Get pet owner's display name from localStorage (shared with other parts of the app)
+  const getOwnerDisplayName = (): string => {
+    try {
+      const currentUserStr = localStorage.getItem('fursure_current_user');
+      if (!currentUserStr) return '';
+
+      const currentUser = JSON.parse(currentUserStr);
+      const storedUsers = JSON.parse(localStorage.getItem('fursure_users') || '{}');
+      const userData = storedUsers[currentUser.username || currentUser.email];
+
+      if (userData) {
+        const fullName = `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
+        if (fullName) return fullName;
+        if (userData.username) return userData.username;
+      }
+
+      return currentUser.email || currentUser.username || '';
+    } catch (error) {
+      console.error('Error loading owner display name:', error);
+      return '';
+    }
+  };
+
+  const ownerDisplayName = !hasFullAccess ? getOwnerDisplayName() : '';
+
   // Get service name from service ID
   const getServiceName = (serviceId: string | undefined): string => {
     if (!serviceId) return 'N/A';
@@ -203,55 +228,266 @@ export function Dashboard() {
   });
 
   const stats = [
-    ...(hasFullAccess ? [
-      {
-        name: 'Total Items',
-        value: items.length.toString(),
-        icon: Package,
-        color: 'text-blue-600 bg-blue-100',
-      },
-      {
-        name: 'Low Stock Items',
-        value: lowStockItems.length.toString(),
-        icon: Package,
-        color: 'text-red-600 bg-red-100',
-      },
-    ] : []),
+    ...(hasFullAccess
+      ? [
+          {
+            name: 'Total Items',
+            value: items.length.toString(),
+            icon: Package,
+            color: 'text-blue-600 bg-blue-100',
+          },
+          {
+            name: 'Low Stock Items',
+            value: lowStockItems.length.toString(),
+            icon: Package,
+            color: 'text-red-600 bg-red-100',
+          },
+        ]
+      : []),
     {
-      name: hasFullAccess ? "Today's Appointments" : "My Appointments",
-      value: hasFullAccess ? todayAppointments.length.toString() : myAppointments.length.toString(),
+      name: hasFullAccess ? "Today's Appointments" : 'Upcoming Appointments',
+      value: hasFullAccess
+        ? todayAppointments.length.toString()
+        : myAppointments.length.toString(),
       icon: Calendar,
-      color: 'text-green-600 bg-green-100',
+      color: hasFullAccess ? 'text-green-600 bg-green-100' : 'text-purple-600 bg-purple-100',
     },
     {
-      name: hasFullAccess ? 'Pending Appointments' : 'Pet Records',
-      value: hasFullAccess ? pendingAppointments.length.toString() : records.length.toString(),
+      name: hasFullAccess ? 'Pending Appointments' : 'Pets with Records',
+      value: hasFullAccess
+        ? pendingAppointments.length.toString()
+        : new Set(records.map((r) => r.petName)).size.toString(),
       icon: Users,
-      color: 'text-yellow-600 bg-yellow-100',
+      color: hasFullAccess ? 'text-yellow-600 bg-yellow-100' : 'text-pink-600 bg-pink-100',
     },
   ];
 
+  // Engaging pet owner dashboard layout
+  if (!hasFullAccess) {
+    const upcomingAppointments = myAppointments
+      .filter((apt) => new Date(apt.date) >= new Date())
+      .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`))
+      .slice(0, 3);
+
+    const hasPets = records.length > 0;
+
+    return (
+      <div className="space-y-8">
+        {/* Hero section */}
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-500 p-6 sm:p-8">
+          <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_top,_#fff,_transparent_60%)]" />
+          <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 text-xs font-medium text-white mb-3">
+                <Heart className="h-4 w-4" />
+                <span>Caring for your pets made simple</span>
+              </div>
+              <h1 className="text-3xl sm:text-4xl font-extrabold text-white flex items-center gap-3">
+                <span>
+                  Welcome back
+                  {ownerDisplayName ? `, ${ownerDisplayName}!` : '!'}
+                </span>
+              </h1>
+              <p className="mt-2 text-sm sm:text-base text-indigo-100 max-w-xl">
+                Track your upcoming visits, manage your pet&apos;s records, and stay on top of their
+                health in one friendly dashboard.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button
+                  onClick={() => navigate('/appointments')}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white text-purple-700 text-sm font-semibold shadow-sm hover:bg-indigo-50 transition-colors"
+                >
+                  <Calendar className="h-4 w-4" />
+                  Book a new appointment
+                </button>
+                <button
+                  onClick={() => navigate('/pet-records')}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 text-white text-sm font-semibold border border-white/30 hover:bg-white/15 transition-colors"
+                >
+                  <Heart className="h-4 w-4" />
+                  View pet records
+                </button>
+              </div>
+            </div>
+            <div className="relative w-full max-w-xs mx-auto md:mx-0">
+              <div className="rounded-2xl bg-white/10 border border-white/30 backdrop-blur-md p-4 shadow-lg">
+                <p className="text-xs font-semibold text-indigo-100 mb-2">Next appointment</p>
+                {upcomingAppointments.length === 0 ? (
+                  <p className="text-sm text-indigo-100">
+                    You don&apos;t have any upcoming appointments yet. Book one to get started.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {upcomingAppointments.map((apt) => (
+                      <div
+                        key={apt.id}
+                        className="rounded-lg bg-white/10 p-3 border border-white/20 text-xs text-indigo-50"
+                      >
+                        <p className="font-semibold">
+                          {formatDate(apt.date)} · {formatTime12Hour(apt.time)}
+                        </p>
+                        <p className="mt-1">
+                          With <span className="font-medium">{apt.vet}</span>
+                        </p>
+                        {apt.serviceType && (
+                          <p className="mt-0.5 text-[11px] text-indigo-100">
+                            {getServiceName(apt.serviceType)}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Stats + pets summary */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Stat cards */}
+          <div className="lg:col-span-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {stats.map((stat) => (
+                <div
+                  key={stat.name}
+                  className="bg-white rounded-2xl p-5 shadow-sm border hover:shadow-md transition-shadow"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                        {stat.name}
+                      </p>
+                      <p className="mt-1 text-2xl font-bold text-gray-900">{stat.value}</p>
+                    </div>
+                    <div className={`p-3 rounded-xl ${stat.color}`}>
+                      <stat.icon className="h-6 w-6" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Pets summary */}
+          <div className="bg-white rounded-2xl p-5 shadow-sm border">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Your pets</h3>
+            {hasPets ? (
+              <div className="space-y-2">
+                {records.slice(0, 4).map((record) => (
+                  <div
+                    key={record.id}
+                    className="flex items-center justify-between rounded-lg bg-purple-50 px-3 py-2"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-purple-900">{record.petName}</p>
+                      <p className="text-xs text-purple-700">
+                        {record.breed} · {record.age} yrs · {record.weight} kg
+                      </p>
+                    </div>
+                  </div>
+                ))}
+                {records.length > 4 && (
+                  <button
+                    onClick={() => navigate('/pet-records')}
+                    className="mt-1 text-xs font-medium text-purple-700 hover:text-purple-900"
+                  >
+                    View all records
+                  </button>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">
+                You don&apos;t have any pet records yet. Add your pet&apos;s information to track their
+                health history.
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Appointments + records */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch min-h-[40vh]">
+          {/* My recent appointments */}
+          <div className="bg-white rounded-2xl p-5 shadow-sm border lg:col-span-2 flex flex-col h-full">
+            <h3 className="text-sm font-semibold text-gray-900 mb-4">My recent appointments</h3>
+            <div className="space-y-3 flex-1">
+              {myAppointments.slice(0, 5).length === 0 ? (
+                <p className="text-sm text-gray-500">No appointments found.</p>
+              ) : (
+                myAppointments
+                  .slice()
+                  .sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`))
+                  .slice(0, 5)
+                  .map((appointment) => (
+                    <div
+                      key={appointment.id}
+                      className="flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2 hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex-1">
+                        <p className="text-sm text-gray-900">
+                          <span className="font-semibold text-purple-700">
+                            {formatDate(appointment.date)}
+                          </span>{' '}
+                          · {formatTime12Hour(appointment.time)}
+                        </p>
+                        <p className="text-xs text-gray-600">
+                          With {appointment.vet}
+                          {appointment.serviceType && (
+                            <span> · {getServiceName(appointment.serviceType)}</span>
+                          )}
+                        </p>
+                      </div>
+                      <span
+                        className={`px-2 py-1 text-xs font-medium rounded-full ml-2 ${getStatusColorClasses(
+                          appointment,
+                        )}`}
+                      >
+                        {getStatusLabel(appointment)}
+                      </span>
+                    </div>
+                  ))
+              )}
+            </div>
+          </div>
+
+          {/* Recent records - tall card to match appointments visually */}
+          <div className="bg-white rounded-2xl p-5 shadow-sm border flex flex-col h-full">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Recent pet records</h3>
+            <div className="space-y-3 flex-1">
+              {records.length === 0 ? (
+                <p className="text-sm text-gray-500">No pet records found.</p>
+              ) : (
+                records.slice(0, 6).map((record) => (
+                  <div
+                    key={record.id}
+                    className="p-3 bg-purple-50 rounded-lg border border-purple-100"
+                  >
+                    <h4 className="font-medium text-purple-900 mb-1">{record.petName}</h4>
+                    <p className="text-xs text-purple-800">
+                      {record.recentIllness
+                        ? `Recent concern: ${record.recentIllness}`
+                        : 'No recent illness recorded'}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Admin / staff dashboard layout
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          {hasFullAccess ? (
-            <>
-              <Stethoscope className="h-8 w-8 text-blue-600" />
-              Admin Dashboard
-            </>
-          ) : (
-            <>
-              <Heart className="h-8 w-8 text-purple-600" />
-              Pet Owner Dashboard
-            </>
-          )}
+          <Stethoscope className="h-8 w-8 text-blue-600" />
+          Admin Dashboard
         </h1>
         <p className="text-gray-600">
-          {hasFullAccess 
-            ? 'Manage your veterinary clinic operations and patient care' 
-            : 'Welcome to FURSURE - Manage your pet\'s health and appointments'
-          }
+          Manage your veterinary clinic operations and patient care
         </p>
       </div>
 
@@ -273,13 +509,13 @@ export function Dashboard() {
       </div>
 
       {/* Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
         {/* Today's Appointments / My Appointments */}
-        <div className="bg-white rounded-lg p-6 shadow-sm border">
+        <div className="bg-white rounded-lg p-6 shadow-sm border flex flex-col min-h-[420px]">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
             {hasFullAccess ? "Today's Appointments" : "My Recent Appointments"}
           </h3>
-          <div className="space-y-3">
+          <div className="space-y-3 flex-1">
             {(hasFullAccess ? todayAppointments : myAppointments.slice(0, 5)).length === 0 ? (
               <p className="text-gray-500 text-sm">
                 {hasFullAccess ? 'No appointments today' : 'No appointments found'}
@@ -336,9 +572,9 @@ export function Dashboard() {
 
         {/* Low Stock Alert / Pet Records */}
         {hasFullAccess ? (
-          <div className="bg-white rounded-lg p-6 shadow-sm border">
+          <div className="bg-white rounded-lg p-6 shadow-sm border flex flex-col min-h-[420px]">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Stock Alerts</h3>
-            <div className="space-y-3">
+            <div className="space-y-3 flex-1">
               {lowStockItems.length === 0 ? (
                 <p className="text-gray-500 text-sm">All items are well stocked</p>
               ) : (
@@ -355,9 +591,9 @@ export function Dashboard() {
             </div>
           </div>
         ) : (
-          <div className="bg-white rounded-lg p-6 shadow-sm border">
+          <div className="bg-white rounded-lg p-6 shadow-sm border flex flex-col min-h-[420px]">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Pet Records</h3>
-            <div className="space-y-3">
+            <div className="space-y-3 flex-1">
               {records.length === 0 ? (
                 <p className="text-gray-500 text-sm">No pet records found</p>
               ) : (
