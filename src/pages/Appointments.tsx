@@ -81,6 +81,124 @@ export function Appointments() {
     return days[date.getDay()];
   };
 
+  // Helper: Parse time string (HH:MM) to minutes since midnight
+  const parseTime = (timeStr: string): number => {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return hours * 60 + minutes;
+  };
+
+  // Helper: Format minutes since midnight to time string (HH:MM)
+  const formatTime = (minutes: number): string => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+  };
+
+  // Helper: Check if two time ranges overlap
+  const rangesOverlap = (startA: number, endA: number, startB: number, endB: number): boolean => {
+    return startA < endB && endA > startB;
+  };
+
+  // Helper: Get service duration in minutes (defaults to 30 if not set)
+  const getServiceDurationMinutes = (): number => {
+    return selectedService?.durationMinutes ?? 30;
+  };
+
+  // Helper: Calculate service end time
+  const calculateServiceEndTime = (startTime: string, durationMinutes: number): string => {
+    const start = parseTime(startTime);
+    const end = start + durationMinutes;
+    return formatTime(end);
+  };
+
+  // Helper: Check if service overlaps with lunch break
+  const doesServiceOverlapLunch = (
+    startTime: string,
+    serviceDuration: number,
+    lunchStartTime: string | undefined,
+    lunchEndTime: string | undefined
+  ): boolean => {
+    if (!lunchStartTime || !lunchEndTime) return false;
+
+    const serviceStart = parseTime(startTime);
+    const serviceEnd = serviceStart + serviceDuration;
+    const lunchStart = parseTime(lunchStartTime);
+    const lunchEnd = parseTime(lunchEndTime);
+
+    return rangesOverlap(serviceStart, serviceEnd, lunchStart, lunchEnd);
+  };
+
+  // Helper: Check if vet is available for service at given time
+  const isVetAvailableForService = (
+    vetName: string,
+    date: Date,
+    startTime: string,
+    serviceDuration: number,
+    dateStr: string
+  ): boolean => {
+    const dayName = getDayName(date);
+    const avail = allAvailability.find(a => a.veterinarianName === vetName);
+    
+    if (!avail || !avail.workingDays.includes(dayName)) return false;
+    if (!allActiveVets.includes(vetName)) return false;
+
+    const workStart = parseTime(avail.startTime);
+    const workEnd = parseTime(avail.endTime);
+    const serviceStart = parseTime(startTime);
+    const serviceEnd = serviceStart + serviceDuration;
+
+    // Check if service can complete before vet's end time
+    if (serviceStart < workStart || serviceEnd > workEnd) return false;
+
+    // Check lunch break overlap
+    if (doesServiceOverlapLunch(startTime, serviceDuration, avail.lunchStartTime, avail.lunchEndTime)) {
+      return false;
+    }
+
+    // Check overlapping bookings (confirmed or pending only)
+    const hasConflict = appointments.some(apt => {
+      if (apt.vet !== vetName) return false;
+      if (apt.date !== dateStr) return false;
+      // Only consider confirmed or pending appointments as booked
+      if (apt.status !== 'confirmed' && apt.status !== 'pending') return false;
+
+      const aptStart = parseTime(apt.time);
+      const aptService = services.find(s => s.id === apt.serviceType);
+      const aptDuration = aptService?.durationMinutes ?? 30;
+      const aptEnd = aptStart + aptDuration;
+
+      // Check if service overlaps with appointment
+      return rangesOverlap(serviceStart, serviceEnd, aptStart, aptEnd);
+    });
+
+    return !hasConflict;
+  };
+
+  // Helper: Format date to YYYY-MM-DD string
+  const formatDateLocal = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Helper: Get available vets for a specific timeslot and service duration
+  const getAvailableVetsForTimeslot = (date: Date | null, timeslot: string, serviceDuration: number): string[] => {
+    if (!date) return [];
+
+    const dateStr = formatDateLocal(date);
+    const availableVetsSet = new Set<string>();
+
+    allAvailability.forEach(avail => {
+      const vetName = avail.veterinarianName;
+      if (isVetAvailableForService(vetName, date, timeslot, serviceDuration, dateStr)) {
+        availableVetsSet.add(vetName);
+      }
+    });
+
+    return Array.from(availableVetsSet).sort();
+  };
+
   // Check if a date is available (at least one vet works on that day)
   const isDateAvailable = (date: Date): boolean => {
     const dayName = getDayName(date);
@@ -123,66 +241,48 @@ export function Appointments() {
     const startMinutes = parseTime(earliestStart);
     const endMinutes = parseTime(latestEnd);
     
-    for (let minutes = startMinutes; minutes < endMinutes; minutes += 30) {
+    // Generate 30-minute interval slots, ensuring we include slots that can fit at least 30 minutes
+    for (let minutes = startMinutes; minutes + 30 <= endMinutes; minutes += 30) {
       slots.push(formatTime(minutes));
     }
 
     return slots;
   }, [allAvailability]);
 
-  // Get available time slots for selected date, respecting vets' lunch breaks
+  // Generate available timeslots for a date based on service duration
+  // Only shows timeslots where at least one vet is available
   const getAvailableTimeSlotsForDate = (date: Date | null): string[] => {
-    if (!date) return [];
-    
-    const dayName = getDayName(date);
-    const availableTimes = new Set<string>();
+    try {
+      if (!date) return [];
+      if (!selectedService) return [];
 
-    // Find all vets working on this day
-    allAvailability.forEach(avail => {
-      if (avail.workingDays.includes(dayName)) {
-        // Generate slots for this vet's working hours
-        const parseTime = (timeStr: string): number => {
-          const [hours, minutes] = timeStr.split(':').map(Number);
-          return hours * 60 + minutes;
-        };
+      const serviceDuration = getServiceDurationMinutes();
+      const availableTimes: string[] = [];
 
-        const formatTime = (minutes: number): string => {
-          const hours = Math.floor(minutes / 60);
-          const mins = minutes % 60;
-          return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
-        };
+      // Start from the base 30-minute grid
+      const baseSlots = generateTimeSlots;
 
-        const startMinutes = parseTime(avail.startTime);
-        const endMinutes = parseTime(avail.endTime);
-        const duration = avail.appointmentDuration || 30;
-
-        const hasLunch =
-          avail.lunchStartTime && avail.lunchEndTime;
-        const lunchStart = hasLunch ? parseTime(avail.lunchStartTime!) : null;
-        const lunchEnd = hasLunch ? parseTime(avail.lunchEndTime!) : null;
-
-        // Generate slots with the vet's appointment duration, skipping their lunch window
-        for (let minutes = startMinutes; minutes + duration <= endMinutes; minutes += duration) {
-          if (
-            hasLunch &&
-            lunchStart !== null &&
-            lunchEnd !== null &&
-            minutes < lunchEnd &&
-            minutes + duration > lunchStart
-          ) {
-            // Overlaps lunch, skip this slot for this vet
-            continue;
+      // For each 30-minute timeslot, check if at least one vet is available
+      baseSlots.forEach(timeslot => {
+        try {
+          const availableVets = getAvailableVetsForTimeslot(date, timeslot, serviceDuration);
+          if (availableVets.length > 0) {
+            availableTimes.push(timeslot);
           }
-          availableTimes.add(formatTime(minutes));
+        } catch (error) {
+          console.error('Error checking timeslot availability:', error);
         }
-      }
-    });
+      });
 
-    return Array.from(availableTimes).sort();
+      return availableTimes.sort();
+    } catch (error) {
+      console.error('Error generating available timeslots:', error);
+      return [];
+    }
   };
 
   const dateForTimeSlots: Date | null = selectedDate;
-  const timeSlots = dateForTimeSlots ? getAvailableTimeSlotsForDate(dateForTimeSlots) : generateTimeSlots;
+  const timeSlots = dateForTimeSlots ? getAvailableTimeSlotsForDate(selectedDate) : generateTimeSlots;
 
   const formatTime12Hour = (time24: string): string => {
     const [hours, minutes] = time24.split(':').map(Number);
@@ -216,79 +316,14 @@ export function Appointments() {
     }
   };
 
-  const formatDateLocal = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
-  // Get available vets for selected date and time based on their availability and lunch breaks
+  // Get available vets for selected date and time based on service duration
   const getAvailableVets = (): string[] => {
-    if (!selectedDate || !selectedTime) {
-      return allActiveVets;
+    if (!selectedDate || !selectedTime || !selectedService) {
+      return [];
     }
 
-    const dayName = getDayName(selectedDate);
-    const parseTime = (timeStr: string): number => {
-      const [hours, minutes] = timeStr.split(':').map(Number);
-      return hours * 60 + minutes;
-    };
-    
-    const requestedTime = parseTime(selectedTime);
-    const availableVets = new Set<string>();
-    
-    // Check each vet's availability
-    allAvailability.forEach(avail => {
-      // Check if vet works on this day
-      if (avail.workingDays.includes(dayName)) {
-        const startMinutes = parseTime(avail.startTime);
-        const endMinutes = parseTime(avail.endTime);
-        const duration = avail.appointmentDuration || 30;
-        const hasLunch =
-          avail.lunchStartTime && avail.lunchEndTime;
-        const lunchStart = hasLunch ? parseTime(avail.lunchStartTime!) : null;
-        const lunchEnd = hasLunch ? parseTime(avail.lunchEndTime!) : null;
-        
-        // Check if the requested time falls within working hours,
-        // there's enough time for an appointment, and it is NOT during this vet's lunch break
-        const withinWorkingHours =
-          requestedTime >= startMinutes && requestedTime + duration <= endMinutes;
-
-        const overlapsLunch =
-          hasLunch &&
-          lunchStart !== null &&
-          lunchEnd !== null &&
-          requestedTime < lunchEnd &&
-          requestedTime + duration > lunchStart;
-
-        if (withinWorkingHours && !overlapsLunch) {
-          // Find the vet name matching this availability
-          const vet = allActiveVets.find(v => v === avail.veterinarianName);
-          if (vet) {
-            availableVets.add(vet);
-          }
-        }
-      }
-    });
-    
-    // Fallback: if no vets found by availability, check schedules
-    if (availableVets.size === 0) {
-      // We already know selectedDate is defined at this point
-      const dateStr = formatDateLocal(selectedDate);
-      const schedules = getSchedulesByDate(dateStr);
-      
-      schedules.forEach(schedule => {
-        const startTime = parseTime(schedule.startTime);
-        const endTime = parseTime(schedule.endTime);
-        
-        if (requestedTime >= startTime && requestedTime < endTime) {
-          schedule.veterinarians.forEach(vet => availableVets.add(vet));
-        }
-      });
-    }
-    
-    return Array.from(availableVets).sort();
+    const serviceDuration = getServiceDurationMinutes();
+    return getAvailableVetsForTimeslot(selectedDate, selectedTime, serviceDuration);
   };
 
   const availableVets = getAvailableVets();
@@ -335,50 +370,19 @@ export function Appointments() {
     return appointments.some(apt => apt.date === dateStr && apt.time === time && apt.status !== 'cancelled');
   };
 
-  // Check if a time slot is available based on veterinarian availability and lunch breaks
+  // Check if a time slot is available based on service duration and vet availability
   const isSlotAvailableByAvailability = (time: string): boolean => {
-    if (!selectedDate) return false;
-    
-    const dayName = getDayName(selectedDate);
-    const parseTime = (timeStr: string): number => {
-      const [hours, minutes] = timeStr.split(':').map(Number);
-      return hours * 60 + minutes;
-    };
-    
-    const requestedTime = parseTime(time);
+    if (!selectedDate || !selectedService) return false;
     
     // If no availability data exists, allow all slots (fallback)
     if (allAvailability.length === 0) {
       return true;
     }
     
-    // Check if at least one veterinarian is available at this time (not on lunch)
-    return allAvailability.some(avail => {
-      if (!avail.workingDays.includes(dayName)) return false;
-      
-      const startMinutes = parseTime(avail.startTime);
-      const endMinutes = parseTime(avail.endTime);
-      const duration = avail.appointmentDuration || 30;
-
-      const hasLunch =
-        avail.lunchStartTime && avail.lunchEndTime;
-      const lunchStart = hasLunch ? parseTime(avail.lunchStartTime!) : null;
-      const lunchEnd = hasLunch ? parseTime(avail.lunchEndTime!) : null;
-      
-      // Check if the requested time falls within working hours
-      // and there's enough time for an appointment
-      const withinWorkingHours =
-        requestedTime >= startMinutes && requestedTime + duration <= endMinutes;
-
-      const overlapsLunch =
-        hasLunch &&
-        lunchStart !== null &&
-        lunchEnd !== null &&
-        requestedTime < lunchEnd &&
-        requestedTime + duration > lunchStart;
-
-      return withinWorkingHours && !overlapsLunch;
-    });
+    // Check if at least one vet is available for this service duration at this time
+    const serviceDuration = getServiceDurationMinutes();
+    const availableVets = getAvailableVetsForTimeslot(selectedDate, time, serviceDuration);
+    return availableVets.length > 0;
   };
 
   const isSlotAvailable = (time: string) => {
