@@ -17,7 +17,7 @@ import 'react-calendar/dist/Calendar.css';
 type BookingStep = 1 | 2 | 3 | 4;
 
 export function Appointments() {
-  const { appointments, addAppointment, updateAppointment } = useAppointmentStore();
+  const { appointments, allAppointments, addAppointment, updateAppointment } = useAppointmentStore();
   const { isTimeSlotAvailable, getSchedulesByDate } = useScheduleStore();
   const { role } = useRoleStore();
   const { records: petRecords } = usePetRecordsStore();
@@ -156,7 +156,7 @@ export function Appointments() {
     }
 
     // Check overlapping bookings (confirmed or pending only)
-    const hasConflict = appointments.some(apt => {
+    const hasConflict = allAppointments.some(apt => {
       if (apt.vet !== vetName) return false;
       if (apt.date !== dateStr) return false;
       // Only consider confirmed or pending appointments as booked
@@ -364,10 +364,28 @@ export function Appointments() {
     setSelectedService(service);
   };
 
+  // A timeslot is considered "booked"/fully booked if:
+  // - There is at least one (pending or confirmed) appointment at that time, AND
+  // - No vets are available for the selected service duration at that time
   const isSlotBooked = (time: string) => {
-    if (!selectedDate) return false;
+    if (!selectedDate || !selectedService) return false;
+
     const dateStr = formatDateLocal(selectedDate);
-    return appointments.some(apt => apt.date === dateStr && apt.time === time && apt.status !== 'cancelled');
+
+    // Any appointment at this exact start time that counts as booked?
+    const hasAnyBooking = allAppointments.some(apt => {
+      if (apt.date !== dateStr) return false;
+      if (apt.time !== time) return false;
+      return apt.status === 'pending' || apt.status === 'approved';
+    });
+
+    if (!hasAnyBooking) return false;
+
+    // If at least one vet is still available for this service duration, slot is NOT fully booked
+    const serviceDuration = getServiceDurationMinutes();
+    const availableVetsForSlot = getAvailableVetsForTimeslot(selectedDate, time, serviceDuration);
+
+    return availableVetsForSlot.length === 0;
   };
 
   // Check if a time slot is available based on service duration and vet availability

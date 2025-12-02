@@ -91,6 +91,9 @@ export function useAppointmentStore() {
   
   // @ts-ignore - API types will be generated when Convex syncs
   const appointmentsData = useQuery(api.appointments.list, queryArgs);
+  // Separate unfiltered list for scheduling logic (all appointments, all owners)
+  // @ts-ignore
+  const allAppointmentsData = useQuery(api.appointments.list, {});
   // @ts-ignore
   const addAppointmentMutation = useMutation(api.appointments.add);
   // @ts-ignore
@@ -99,6 +102,7 @@ export function useAppointmentStore() {
   const deleteAppointmentMutation = useMutation(api.appointments.remove);
 
   const appointments: Appointment[] = appointmentsData?.map(convertAppointment) ?? [];
+  const allAppointments: Appointment[] = allAppointmentsData?.map(convertAppointment) ?? [];
 
   const addAppointment = async (appointment: Omit<Appointment, 'id'>) => {
     await addAppointmentMutation({
@@ -174,6 +178,7 @@ export function useAppointmentStore() {
 
   return {
     appointments,
+    allAppointments,
     addAppointment,
     updateAppointment,
     deleteAppointment,
