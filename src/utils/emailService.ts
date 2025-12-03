@@ -7,7 +7,7 @@ export const sendEmail = async (to: string, type: string, data: any) => {
   
   const emailTemplates = {
     approved: {
-      subject: 'Appointment Approved - FURSURE Veterinary Clinic',
+      subject: 'Appointment Approved - FurSure Veterinary Clinic',
       body: `
         Dear Pet Owner,
         
@@ -22,11 +22,11 @@ export const sendEmail = async (to: string, type: string, data: any) => {
         Please arrive 15 minutes early for check-in.
         
         Best regards,
-        FURSURE Veterinary Clinic
+        FurSure Veterinary Clinic
       `
     },
     rejected: {
-      subject: 'Appointment Update - FURSURE Veterinary Clinic',
+      subject: 'Appointment Update - FurSure Veterinary Clinic',
       body: `
         Dear Pet Owner,
         
@@ -37,11 +37,11 @@ export const sendEmail = async (to: string, type: string, data: any) => {
         Please contact us to schedule a new appointment.
         
         Best regards,
-        FURSURE Veterinary Clinic
+        FurSure Veterinary Clinic
       `
     },
     cancelled: {
-      subject: 'Appointment Cancelled - FURSURE Veterinary Clinic',
+      subject: 'Appointment Cancelled - FurSure Veterinary Clinic',
       body: `
         Dear Pet Owner,
         
@@ -52,11 +52,11 @@ export const sendEmail = async (to: string, type: string, data: any) => {
         Please contact us if you need to reschedule.
         
         Best regards,
-        FURSURE Veterinary Clinic
+        FurSure Veterinary Clinic
       `
     },
     rescheduled: {
-      subject: 'Appointment Rescheduled - FURSURE Veterinary Clinic',
+      subject: 'Appointment Rescheduled - FurSure Veterinary Clinic',
       body: `
         Dear Pet Owner,
         
@@ -67,7 +67,7 @@ export const sendEmail = async (to: string, type: string, data: any) => {
         Veterinarian: ${data.vet}
         
         Best regards,
-        FURSURE Veterinary Clinic
+        FurSure Veterinary Clinic
       `
     }
   };

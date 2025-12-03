@@ -124,7 +124,7 @@ export function SignupPage() {
         role: 'owner',
       }));
 
-      toast.success('Registration successful! Welcome to FURSURE');
+      toast.success('Registration successful! Welcome to FurSure');
       navigate('/dashboard');
     } catch (error: any) {
       const errorMessage = error?.message || 'Registration failed. Please try again.';
@@ -143,11 +143,15 @@ export function SignupPage() {
           <div className="absolute inset-6 border border-white/10 rounded-3xl pointer-events-none" />
           <div className="text-center text-white relative">
             <div className="mb-8">
-              <div className="inline-flex items-center justify-center w-20 h-20 bg-white/15 rounded-full mb-4 backdrop-blur-md">
-                <Heart className="h-10 w-10 text-white" />
+              <div className="inline-flex items-center justify-center w-32 h-32 bg-white/15 rounded-full mb-1 backdrop-blur-md p-2">
+                <img 
+                  src="https://i.imgur.com/mxgtBE2_d.png?maxwidth=520&shape=thumb&fidelity=high"
+                  alt="FurSure Logo"
+                  className="w-full h-full object-contain"
+                />
               </div>
             </div>
-            <h1 className="text-3xl md:text-4xl font-bold mb-2">FURSURE</h1>
+            <h1 className="text-3xl md:text-4xl font-bold mb-2">FurSure</h1>
             <p className="text-sm md:text-base text-white/80">
               Create your account and start managing your pet&apos;s care.
             </p>
@@ -368,7 +372,7 @@ export function SignupPage() {
 
             {/* Footer */}
             <div className="mt-6 text-center text-xs text-gray-500">
-              © 2024 FURSURE Veterinary Clinic. All rights reserved.
+              © 2024 FurSure Veterinary Clinic. All rights reserved.
             </div>
           </div>
         </div>

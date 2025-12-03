@@ -75,14 +75,33 @@ export function LoginPage() {
           <div className="absolute inset-6 border border-white/10 rounded-3xl pointer-events-none" />
           <div className="text-center text-white relative">
             <div className="mb-8">
-              <div className="inline-flex items-center justify-center w-20 h-20 bg-white/15 rounded-full mb-4 backdrop-blur-md">
-                <Heart className="h-10 w-10 text-white" />
+              <div className="inline-flex items-center justify-center w-32 h-32 bg-white/15 rounded-full mb-1 backdrop-blur-md p-2">
+                <img 
+                  src="https://i.imgur.com/mxgtBE2_d.png?maxwidth=520&shape=thumb&fidelity=high"
+                  alt="FurSure Logo"
+                  className="w-full h-full object-contain"
+                />
               </div>
             </div>
-            <h1 className="text-3xl md:text-4xl font-bold mb-2">FURSURE</h1>
-            <p className="text-sm md:text-base text-white/80">
+            <h1 className="text-3xl md:text-4xl font-bold mb-1">FurSure</h1>
+            <p className="text-sm md:text-base text-white/80 mb-6">
               Professional veterinary care for the pets you love most.
             </p>
+            
+            {/* Partner Section */}
+            <div className="mt-8 pt-6 border-t border-white/20">
+              <p className="text-xs md:text-sm text-white/70 mb-4">partnering with</p>
+              <div className="flex flex-col items-center gap-3">
+                <img 
+                  src="https://scontent.fmnl33-2.fna.fbcdn.net/v/t39.30808-6/490449448_1252069300257785_7617673957187514996_n.jpg?_nc_cat=104&cb2=99be929b-bd9a46d7&ccb=1-7&_nc_sid=cc71e4&_nc_ohc=zSMAKRIt6LoQ7kNvwGS_aQo&_nc_oc=AdkV2eVQgnyDPGq8JfUtkaxf7X4pgChsRCKGxDCyqkLAlunXnQU0XZdRglSI8DFdGrQ&_nc_zt=23&_nc_ht=scontent.fmnl33-2.fna&_nc_gid=_J9EEGO8Jt1_qjrRoKDXjQ&oh=00_AflTIr5CIqNCIvo98Fr2gH16SM4VOfFup0gwmM6FX492TQ&oe=69356889"
+                  alt="Jocari Pet Clinic and Grooming Salon"
+                  className="h-20 w-20 md:h-24 md:w-24 object-contain rounded-lg bg-white/10 p-2"
+                />
+                <p className="text-sm md:text-base text-white/90 font-medium text-center">
+                  Jocari Pet Clinic and Grooming Salon
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -103,7 +122,11 @@ export function LoginPage() {
               <div className="relative">
                 <div className="absolute inset-0 bg-purple-600 rounded-full blur-sm opacity-30"></div>
                 <div className="relative bg-gradient-to-br from-purple-600 to-indigo-600 rounded-full p-3">
-                  <Heart className="h-8 w-8 text-white" />
+                  <img 
+                    src="https://i.imgur.com/mxgtBE2_d.png?maxwidth=520&shape=thumb&fidelity=high"
+                    alt="FurSure Logo"
+                    className="h-14 w-14 object-contain"
+                  />
                 </div>
               </div>
             </div>
@@ -229,7 +252,7 @@ export function LoginPage() {
 
             {/* Footer */}
             <div className="mt-8 text-center text-xs text-gray-500">
-              © 2024 FURSURE Veterinary Clinic. All rights reserved.
+              © 2024 FurSure Veterinary Clinic. All rights reserved.
             </div>
           </div>
         </div>

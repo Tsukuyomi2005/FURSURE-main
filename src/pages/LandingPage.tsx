@@ -125,7 +125,7 @@ export function LandingPage() {
       name: 'Lori Holland',
       role: 'Dog Mom of 2',
       quote:
-        "Booking vet visits used to be so stressful. With FURSURE I can schedule everything from my couch and get reminders before every appointment.",
+        "Booking vet visits used to be so stressful. With FurSure I can schedule everything from my couch and get reminders before every appointment.",
       rating: 5,
       avatar:
         'https://images.pexels.com/photos/1181467/pexels-photo-1181467.jpeg?auto=compress&cs=tinysrgb&w=400'
@@ -242,15 +242,19 @@ export function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
             {/* Logo */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <div className="relative">
                 <div className="absolute inset-0 bg-purple-600 rounded-full blur-sm opacity-30"></div>
                 <div className="relative bg-gradient-to-br from-purple-600 to-indigo-600 rounded-full p-2">
-                  <Heart className="h-6 w-6 text-white" />
+                  <img 
+                    src="https://i.imgur.com/mxgtBE2_d.png?maxwidth=520&shape=thumb&fidelity=high"
+                    alt="FurSure Logo"
+                    className="h-12 w-12 object-contain"
+                  />
                 </div>
               </div>
               <span className="text-2xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
-                FURSURE
+                FurSure
               </span>
             </div>
 
@@ -429,7 +433,7 @@ export function LandingPage() {
                   we help you give your pets the care they deserve—without the stress.
                 </p>
                 <p>
-                  With <strong className="text-white font-semibold">FURSURE</strong>, you can manage appointments, health records, and payments all in one modern, 
+                  With <strong className="text-white font-semibold">FurSure</strong>, you can manage appointments, health records, and payments all in one modern, 
                   easy-to-use platform—so you can focus on making memories, not managing schedules.
                 </p>
               </div>
@@ -496,7 +500,7 @@ export function LandingPage() {
           <div className="text-center mb-10">
             <h2 className="text-4xl font-bold text-slate-800 mb-4">Who We Are</h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              FURSURE is a modern veterinary clinic management system designed to bridge the gap between pet owners and veterinary care
+              FurSure is a modern veterinary clinic management system designed to bridge the gap between pet owners and veterinary care
             </p>
           </div>
 
@@ -505,7 +509,7 @@ export function LandingPage() {
               <div className="space-y-4">
                 <h3 className="text-2xl font-bold text-slate-800">Our Mission</h3>
                 <p className="text-gray-700 leading-relaxed">
-                  At FURSURE, we believe that caring for your pet should be simple, stress-free, and accessible. 
+                  At FurSure, we believe that caring for your pet should be simple, stress-free, and accessible. 
                   We've created a comprehensive platform that allows pet owners to manage their pet's healthcare 
                   journey with ease, while providing veterinary clinics with powerful tools to streamline operations.
                 </p>
@@ -693,7 +697,7 @@ export function LandingPage() {
       <section id="features" ref={featuresRef} className="bg-gray-50 py-14">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
-            <h2 className="text-4xl font-bold text-slate-800 mb-4">Why Choose FURSURE?</h2>
+            <h2 className="text-4xl font-bold text-slate-800 mb-4">Why Choose FurSure?</h2>
             <p className="text-xl text-gray-600">Modern, efficient, and user-friendly veterinary management</p>
           </div>
 
@@ -815,7 +819,7 @@ export function LandingPage() {
             <p className="text-sm uppercase tracking-[0.3em] text-purple-500">Happy Clients</p>
             <h2 className="mt-4 text-3xl md:text-4xl font-bold text-slate-800">Loved by Pet Parents &amp; Clinics</h2>
             <p className="mt-4 text-gray-600 max-w-2xl mx-auto">
-              Real stories from people who trust FURSURE to keep their pets healthy and clinics running smoothly.
+              Real stories from people who trust FurSure to keep their pets healthy and clinics running smoothly.
             </p>
           </div>
 
@@ -872,7 +876,7 @@ export function LandingPage() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
             <h2 className="text-4xl font-bold text-slate-800 mb-4">Frequently Asked Questions</h2>
-            <p className="text-xl text-gray-600">Everything you need to know about FURSURE</p>
+            <p className="text-xl text-gray-600">Everything you need to know about FurSure</p>
           </div>
 
           <div className="space-y-4">
@@ -905,7 +909,7 @@ export function LandingPage() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl font-bold text-white mb-4">Ready to Get Started?</h2>
           <p className="text-xl text-purple-100 mb-8">
-            Join FURSURE today and experience the future of veterinary care management
+            Join FurSure today and experience the future of veterinary care management
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <Link
@@ -928,14 +932,18 @@ export function LandingPage() {
       <footer className="bg-slate-800 text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row items-center justify-between">
-            <div className="flex items-center gap-3 mb-4 md:mb-0">
+            <div className="flex items-center gap-2 mb-4 md:mb-0">
               <div className="bg-gradient-to-br from-purple-600 to-indigo-600 rounded-full p-2">
-                <Heart className="h-5 w-5 text-white" />
+                <img 
+                  src="https://i.imgur.com/mxgtBE2_d.png?maxwidth=520&shape=thumb&fidelity=high"
+                  alt="FurSure Logo"
+                  className="h-10 w-10 object-contain"
+                />
               </div>
-              <span className="text-xl font-bold">FURSURE</span>
+              <span className="text-xl font-bold">FurSure</span>
             </div>
             <p className="text-gray-400 text-sm">
-              &copy; 2024 FURSURE Veterinary Clinic Management System. All rights reserved.
+              &copy; 2024 FurSure Veterinary Clinic Management System. All rights reserved.
             </p>
           </div>
         </div>

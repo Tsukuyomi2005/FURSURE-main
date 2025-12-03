@@ -94,14 +94,18 @@ export function Layout({ children }: LayoutProps) {
       )}>
         <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setSidebarOpen(false)} />
         <div className="fixed inset-y-0 left-0 flex w-64 flex-col bg-gradient-to-b from-purple-700 via-purple-600 to-purple-800 shadow-xl">
-          <div className="flex h-16 items-center justify-between px-4 border-b border-purple-500/30">
-            <div className="flex items-center gap-2">
-              <Heart className="h-8 w-8 text-white" />
-              <span className="text-xl font-bold text-white">FURSURE</span>
+          <div className="flex h-auto min-h-16 items-center justify-center px-4 py-3 border-b border-purple-500/30 relative">
+            <div className="flex flex-col items-center gap-1.5">
+              <img 
+                src="https://i.imgur.com/mxgtBE2_d.png?maxwidth=520&shape=thumb&fidelity=high"
+                alt="FurSure Logo"
+                className="h-14 w-14 object-contain"
+              />
+              <span className="text-xl font-bold text-white">FurSure</span>
             </div>
             <button
               onClick={() => setSidebarOpen(false)}
-              className="text-white/70 hover:text-white"
+              className="absolute right-4 text-white/70 hover:text-white"
             >
               <X className="h-6 w-6" />
             </button>
@@ -138,10 +142,14 @@ export function Layout({ children }: LayoutProps) {
 
       {/* Desktop sidebar */}
       <div className="hidden lg:flex lg:w-64 lg:flex-col lg:bg-gradient-to-b lg:from-purple-700 lg:via-purple-600 lg:to-purple-800 lg:border-r lg:border-purple-500/30">
-        <div className="flex h-16 items-center px-4 border-b border-purple-500/30">
-          <div className="flex items-center gap-2">
-            <Heart className="h-8 w-8 text-white" />
-            <span className="text-xl font-bold text-white">FURSURE</span>
+        <div className="flex h-auto min-h-16 items-center justify-center px-4 py-3 border-b border-purple-500/30">
+          <div className="flex flex-col items-center gap-1.5">
+            <img 
+              src="https://i.imgur.com/mxgtBE2_d.png?maxwidth=520&shape=thumb&fidelity=high"
+              alt="FurSure Logo"
+              className="h-12 w-12 object-contain"
+            />
+            <span className="text-xl font-bold text-white">FurSure</span>
           </div>
         </div>
         <nav className="flex-1 px-4 py-4 space-y-2">
