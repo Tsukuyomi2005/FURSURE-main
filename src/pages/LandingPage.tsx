@@ -450,7 +450,7 @@ export function LandingPage() {
                   onClick={() => handleScrollTo('services')}
                   className="px-6 py-3 border-2 border-purple-200 text-white rounded-full font-semibold hover:border-purple-400 hover:bg-purple-50/20 transition-colors"
                 >
-                  Schedule a Call
+                  Browse Services
                 </button>
               </div>
 
