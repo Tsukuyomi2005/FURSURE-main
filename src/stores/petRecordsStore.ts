@@ -10,6 +10,7 @@ function convertPetRecord(doc: {
   _id: Id<"petRecords">;
   _creationTime: number;
   ownerEmail: string;
+  petType?: 'dog' | 'cat';
   petName: string;
   breed: string;
   age: number;
@@ -23,6 +24,7 @@ function convertPetRecord(doc: {
 }): PetRecord {
   return {
     id: doc._id,
+    petType: doc.petType,
     petName: doc.petName,
     breed: doc.breed,
     age: doc.age,
@@ -91,6 +93,7 @@ export function usePetRecordsStore() {
 
     await addPetRecordMutation({
       ownerEmail: ownerEmail,
+      petType: record.petType && record.petType !== '' ? record.petType : undefined,
       petName: record.petName,
       breed: record.breed,
       age: record.age,
@@ -107,6 +110,7 @@ export function usePetRecordsStore() {
   const updateRecord = async (id: string, updates: Partial<PetRecord>) => {
     const updateData: {
       id: Id<"petRecords">;
+      petType?: 'dog' | 'cat';
       petName?: string;
       breed?: string;
       age?: number;
@@ -121,6 +125,7 @@ export function usePetRecordsStore() {
       id: id as Id<"petRecords">,
     };
 
+    if (updates.petType !== undefined) updateData.petType = updates.petType && updates.petType !== '' ? updates.petType : undefined;
     if (updates.petName !== undefined) updateData.petName = updates.petName;
     if (updates.breed !== undefined) updateData.breed = updates.breed;
     if (updates.age !== undefined) updateData.age = updates.age;

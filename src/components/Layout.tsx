@@ -3,11 +3,9 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Menu, 
   X, 
-  Home, 
   Calendar, 
   Package, 
   Heart,
-  LogOut,
   FileText,
   Clock,
   CalendarCheck,
@@ -20,6 +18,146 @@ import {
 } from 'lucide-react';
 import { useRoleStore } from '../stores/roleStore';
 import { cn } from '../lib/utils';
+
+// Custom Dashboard Icon Component
+const DashboardIcon = ({ className }: { className?: string }) => (
+  <img 
+    src="https://cdn-icons-png.flaticon.com/128/1946/1946436.png"
+    alt="Dashboard"
+    className={className}
+    style={{ filter: 'brightness(0) invert(1)' }}
+  />
+);
+
+// Custom Appointments Icon Component
+const AppointmentsIcon = ({ className }: { className?: string }) => (
+  <img 
+    src="https://cdn-icons-png.flaticon.com/128/7322/7322293.png"
+    alt="Appointments"
+    className={className}
+    style={{ filter: 'brightness(0) invert(1)' }}
+  />
+);
+
+// Custom Schedule Management Icon Component
+const ScheduleManagementIcon = ({ className }: { className?: string }) => (
+  <img 
+    src="https://cdn-icons-png.flaticon.com/128/2669/2669444.png"
+    alt="Schedule Management"
+    className={className}
+    style={{ filter: 'brightness(0) invert(1)' }}
+  />
+);
+
+// Custom Services Icon Component
+const ServicesIcon = ({ className }: { className?: string }) => (
+  <img 
+    src="https://cdn-icons-png.flaticon.com/128/3440/3440611.png"
+    alt="Services"
+    className={className}
+    style={{ filter: 'brightness(0) invert(1)' }}
+  />
+);
+
+// Custom Veterinarians/Staff Icon Component
+const VeterinariansStaffIcon = ({ className }: { className?: string }) => (
+  <img 
+    src="https://cdn-icons-png.flaticon.com/128/33/33308.png"
+    alt="Veterinarians/Staff"
+    className={className}
+    style={{ filter: 'brightness(0) invert(1)' }}
+  />
+);
+
+// Custom Inventory Icon Component
+const InventoryIcon = ({ className }: { className?: string }) => (
+  <img 
+    src="https://cdn-icons-png.flaticon.com/128/7480/7480113.png"
+    alt="Inventory"
+    className={className}
+    style={{ filter: 'brightness(0) invert(1)' }}
+  />
+);
+
+// Custom Payment Icon Component
+const PaymentIcon = ({ className }: { className?: string }) => (
+  <img 
+    src="https://cdn-icons-png.flaticon.com/128/726/726559.png"
+    alt="Payment"
+    className={className}
+    style={{ filter: 'brightness(0) invert(1)' }}
+  />
+);
+
+// Custom Reports Icon Component
+const ReportsIcon = ({ className }: { className?: string }) => (
+  <img 
+    src="https://cdn-icons-png.flaticon.com/128/5956/5956361.png"
+    alt="Reports"
+    className={className}
+    style={{ filter: 'brightness(0) invert(1)' }}
+  />
+);
+
+// Custom Logout Icon Component
+const LogoutIcon = ({ className }: { className?: string }) => (
+  <img 
+    src="https://cdn-icons-png.flaticon.com/128/1828/1828479.png"
+    alt="Logout"
+    className={className}
+    style={{ filter: 'brightness(0) invert(1)' }}
+  />
+);
+
+// Custom Book Appointment Icon Component
+const BookAppointmentIcon = ({ className }: { className?: string }) => (
+  <img 
+    src="https://cdn-icons-png.flaticon.com/128/3877/3877867.png"
+    alt="Book Appointment"
+    className={className}
+    style={{ filter: 'brightness(0) invert(1)' }}
+  />
+);
+
+// Custom Payment Timeline Icon Component
+const PaymentTimelineIcon = ({ className }: { className?: string }) => (
+  <img 
+    src="https://cdn-icons-png.flaticon.com/128/8289/8289462.png"
+    alt="Payment Timeline"
+    className={className}
+    style={{ filter: 'brightness(0) invert(1)' }}
+  />
+);
+
+// Custom Pet Records Icon Component
+const PetRecordsIcon = ({ className }: { className?: string }) => (
+  <img 
+    src="https://cdn-icons-png.flaticon.com/128/18875/18875473.png"
+    alt="Pet Records"
+    className={className}
+    style={{ filter: 'brightness(0) invert(1)' }}
+  />
+);
+
+// Custom Profile Settings Icon Component
+const ProfileSettingsIcon = ({ className }: { className?: string }) => (
+  <img 
+    src="https://cdn-icons-png.flaticon.com/128/3524/3524761.png"
+    alt="Profile Settings"
+    className={className}
+    style={{ filter: 'brightness(0) invert(1)' }}
+  />
+);
+
+// Custom Manage Availability Icon Component
+const ManageAvailabilityIcon = ({ className }: { className?: string }) => (
+  <img 
+    src="https://cdn-icons-png.flaticon.com/128/11660/11660095.png"
+    alt="Manage Availability"
+    className={className}
+    style={{ filter: 'brightness(0) invert(1)' }}
+  />
+);
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -36,32 +174,32 @@ export function Layout({ children }: LayoutProps) {
   const isClinicStaff = role === 'clinicStaff';
 
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: Home, current: location.pathname === '/dashboard' },
+    { name: 'Dashboard', href: '/dashboard', icon: DashboardIcon, current: location.pathname === '/dashboard' },
     ...(isClinicStaff ? [
-      { name: 'Manage Availability', href: '/staff-manage-availability', icon: Clock, current: location.pathname === '/staff-manage-availability' },
-      { name: 'Inventory', href: '/staff-inventory', icon: Package, current: location.pathname === '/staff-inventory' },
-      { name: 'Payment Management', href: '/staff-payment-management', icon: CreditCard, current: location.pathname === '/staff-payment-management' },
-      { name: 'Profile Settings', href: '/staff-profile-settings', icon: User, current: location.pathname === '/staff-profile-settings' },
+      { name: 'Manage Availability', href: '/staff-manage-availability', icon: ManageAvailabilityIcon, current: location.pathname === '/staff-manage-availability' },
+      { name: 'Inventory', href: '/staff-inventory', icon: InventoryIcon, current: location.pathname === '/staff-inventory' },
+      { name: 'Payment Management', href: '/staff-payment-management', icon: PaymentIcon, current: location.pathname === '/staff-payment-management' },
+      { name: 'Profile Settings', href: '/staff-profile-settings', icon: ProfileSettingsIcon, current: location.pathname === '/staff-profile-settings' },
     ] : isVeterinarian ? [
-      { name: 'My Appointments', href: '/vet-my-appointments', icon: CalendarCheck, current: location.pathname === '/vet-my-appointments' },
-      { name: 'Manage Availability', href: '/vet-manage-availability', icon: Clock, current: location.pathname === '/vet-manage-availability' },
-      { name: 'Pet Records', href: '/pet-records', icon: FileText, current: location.pathname === '/pet-records' },
-      { name: 'Appointment History', href: '/vet-appointment-history', icon: Calendar, current: location.pathname === '/vet-appointment-history' },
-      { name: 'Profile Settings', href: '/vet-profile-settings', icon: User, current: location.pathname === '/vet-profile-settings' },
+      { name: 'My Appointments', href: '/vet-my-appointments', icon: AppointmentsIcon, current: location.pathname === '/vet-my-appointments' },
+      { name: 'Manage Availability', href: '/vet-manage-availability', icon: ManageAvailabilityIcon, current: location.pathname === '/vet-manage-availability' },
+      { name: 'Pet Records', href: '/pet-records', icon: PetRecordsIcon, current: location.pathname === '/pet-records' },
+      { name: 'Appointment History', href: '/vet-appointment-history', icon: AppointmentsIcon, current: location.pathname === '/vet-appointment-history' },
+      { name: 'Profile Settings', href: '/vet-profile-settings', icon: ProfileSettingsIcon, current: location.pathname === '/vet-profile-settings' },
     ] : hasFullAccess ? [
-      { name: 'Appointments', href: '/appointments', icon: Calendar, current: location.pathname === '/appointments' },
-      { name: 'Schedule Management', href: '/schedule-management', icon: Clock, current: location.pathname === '/schedule-management' },
-      { name: 'Services', href: '/services', icon: Stethoscope, current: location.pathname === '/services' },
-      { name: 'Veterinarians/Staff', href: '/staff-management', icon: Users, current: location.pathname === '/staff-management' },
-      { name: 'Inventory', href: '/inventory', icon: Package, current: location.pathname === '/inventory' },
-      { name: 'Payment Transactions', href: '/payment-transactions', icon: CreditCard, current: location.pathname === '/payment-transactions' },
-      { name: 'Reports', href: '/reports', icon: BarChart3, current: location.pathname === '/reports' },
+      { name: 'Appointments', href: '/appointments', icon: AppointmentsIcon, current: location.pathname === '/appointments' },
+      { name: 'Schedule Management', href: '/schedule-management', icon: ScheduleManagementIcon, current: location.pathname === '/schedule-management' },
+      { name: 'Services', href: '/services', icon: ServicesIcon, current: location.pathname === '/services' },
+      { name: 'Veterinarians/Staff', href: '/staff-management', icon: VeterinariansStaffIcon, current: location.pathname === '/staff-management' },
+      { name: 'Inventory', href: '/inventory', icon: InventoryIcon, current: location.pathname === '/inventory' },
+      { name: 'Payment Transactions', href: '/payment-transactions', icon: PaymentIcon, current: location.pathname === '/payment-transactions' },
+      { name: 'Reports', href: '/reports', icon: ReportsIcon, current: location.pathname === '/reports' },
     ] : [
-      { name: hasFullAccess ? 'Appointments' : 'Book Appointment', href: '/appointments', icon: Calendar, current: location.pathname === '/appointments' },
-      { name: 'My Appointments', href: '/my-appointments', icon: CalendarCheck, current: location.pathname === '/my-appointments' },
-      { name: 'Payment Timeline', href: '/payment-timeline', icon: Receipt, current: location.pathname === '/payment-timeline' },
-      { name: 'Pet Records', href: '/pet-records', icon: FileText, current: location.pathname === '/pet-records' },
-      { name: 'Profile Settings', href: '/owner-profile-settings', icon: User, current: location.pathname === '/owner-profile-settings' },
+      { name: hasFullAccess ? 'Appointments' : 'Book Appointment', href: '/appointments', icon: BookAppointmentIcon, current: location.pathname === '/appointments' },
+      { name: 'My Appointments', href: '/my-appointments', icon: AppointmentsIcon, current: location.pathname === '/my-appointments' },
+      { name: 'Payment Timeline', href: '/payment-timeline', icon: PaymentTimelineIcon, current: location.pathname === '/payment-timeline' },
+      { name: 'Pet Records', href: '/pet-records', icon: PetRecordsIcon, current: location.pathname === '/pet-records' },
+      { name: 'Profile Settings', href: '/owner-profile-settings', icon: ProfileSettingsIcon, current: location.pathname === '/owner-profile-settings' },
     ]),
   ];
 
@@ -93,7 +231,7 @@ export function Layout({ children }: LayoutProps) {
         sidebarOpen ? "block" : "hidden"
       )}>
         <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setSidebarOpen(false)} />
-        <div className="fixed inset-y-0 left-0 flex w-64 flex-col bg-gradient-to-b from-purple-700 via-purple-600 to-purple-800 shadow-xl">
+        <div className="fixed inset-y-0 left-0 flex w-64 flex-col bg-gradient-to-b from-purple-700 via-purple-600 to-purple-800 shadow-xl font-sinkin">
           <div className="flex h-auto min-h-16 items-center justify-center px-4 py-3 border-b border-purple-500/30 relative">
             <div className="flex flex-col items-center gap-1.5">
               <img 
@@ -133,7 +271,7 @@ export function Layout({ children }: LayoutProps) {
               onClick={handleLogout}
               className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-white hover:bg-white/10 w-full transition-colors"
             >
-              <LogOut className="h-5 w-5" />
+              <LogoutIcon className="h-5 w-5" />
               Logout
             </button>
           </div>
@@ -174,7 +312,7 @@ export function Layout({ children }: LayoutProps) {
               onClick={handleLogout}
               className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-white hover:bg-white/10 w-full transition-colors"
             >
-              <LogOut className="h-5 w-5" />
+              <LogoutIcon className="h-5 w-5" />
               Logout
             </button>
           </div>

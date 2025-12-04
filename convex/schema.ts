@@ -112,6 +112,7 @@ const applicationTables = {
     .index("by_email", ["email"]),
   petRecords: defineTable({
     ownerEmail: v.string(), // Email of the pet owner who owns this record
+    petType: v.optional(v.union(v.literal("dog"), v.literal("cat"))),
     petName: v.string(),
     breed: v.string(),
     age: v.number(),

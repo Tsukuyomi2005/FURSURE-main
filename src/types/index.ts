@@ -41,6 +41,7 @@ export interface Appointment {
 
 export interface PetRecord {
   id: string;
+  petType?: 'dog' | 'cat';
   petName: string;
   breed: string;
   age: number;

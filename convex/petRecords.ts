@@ -16,6 +16,7 @@ export const list = query({
       _id: v.id("petRecords"),
       _creationTime: v.number(),
       ownerEmail: v.string(),
+      petType: v.optional(v.union(v.literal("dog"), v.literal("cat"))),
       petName: v.string(),
       breed: v.string(),
       age: v.number(),
@@ -51,6 +52,7 @@ export const list = query({
 export const add = mutation({
   args: {
     ownerEmail: v.string(), // Email of the pet owner
+    petType: v.optional(v.union(v.literal("dog"), v.literal("cat"))),
     petName: v.string(),
     breed: v.string(),
     age: v.number(),
@@ -69,6 +71,7 @@ export const add = mutation({
   handler: async (ctx, args) => {
     return await ctx.db.insert("petRecords", {
       ownerEmail: args.ownerEmail,
+      petType: args.petType,
       petName: args.petName,
       breed: args.breed,
       age: args.age,
@@ -89,6 +92,7 @@ export const add = mutation({
 export const update = mutation({
   args: {
     id: v.id("petRecords"),
+    petType: v.optional(v.union(v.literal("dog"), v.literal("cat"))),
     petName: v.optional(v.string()),
     breed: v.optional(v.string()),
     age: v.optional(v.number()),

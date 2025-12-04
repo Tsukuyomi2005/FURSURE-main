@@ -187,24 +187,22 @@ export function StaffManageAvailability() {
                   </label>
                   <div className="flex items-center gap-4">
                     <div className="flex-1 relative">
-                      <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none z-10" />
                       <input
                         type="time"
                         value={formData.startTime}
                         onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                        className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        className={`w-full pl-4 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                           errors.startTime ? 'border-red-500' : 'border-gray-300'
                         }`}
                       />
                     </div>
                     <span className="text-gray-600 font-medium">to</span>
                     <div className="flex-1 relative">
-                      <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none z-10" />
                       <input
                         type="time"
                         value={formData.endTime}
                         onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                        className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        className={`w-full pl-4 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                           errors.endTime ? 'border-red-500' : 'border-gray-300'
                         }`}
                       />

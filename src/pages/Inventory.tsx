@@ -6,6 +6,51 @@ import { InventoryModal } from '../components/InventoryModal';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import type { InventoryItem } from '../types';
 
+// Medication Icon Component
+const MedicationIcon = ({ className }: { className?: string }) => (
+  <img
+    src="https://cdn-icons-png.flaticon.com/128/883/883356.png"
+    alt="Medication"
+    className={className}
+  />
+);
+
+// Diagnostic Icon Component
+const DiagnosticIcon = ({ className }: { className?: string }) => (
+  <img
+    src="https://cdn-icons-png.flaticon.com/128/2920/2920233.png"
+    alt="Diagnostic"
+    className={className}
+  />
+);
+
+// Surgical Icon Component
+const SurgicalIcon = ({ className }: { className?: string }) => (
+  <img
+    src="https://cdn-icons-png.flaticon.com/128/9442/9442009.png"
+    alt="Surgical"
+    className={className}
+  />
+);
+
+// Supplies Icon Component
+const SuppliesIcon = ({ className }: { className?: string }) => (
+  <img
+    src="https://cdn-icons-png.flaticon.com/128/2871/2871597.png"
+    alt="Supplies"
+    className={className}
+  />
+);
+
+// Equipment Icon Component
+const EquipmentIcon = ({ className }: { className?: string }) => (
+  <img
+    src="https://cdn-icons-png.flaticon.com/128/7918/7918229.png"
+    alt="Equipment"
+    className={className}
+  />
+);
+
 type TabType = 'current' | 'adu';
 
 interface ADUItem {
@@ -248,7 +293,19 @@ export function Inventory() {
                       <tr key={item.id} className={`hover:bg-purple-100 transition-colors ${isExpired(item.expiryDate) ? 'bg-gray-50 opacity-60' : ''}`}>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
-                            <Package className="h-8 w-8 text-gray-400 mr-3" />
+                            {item.category === 'Medication' ? (
+                              <MedicationIcon className="h-8 w-8 mr-3" />
+                            ) : item.category === 'Diagnostic' ? (
+                              <DiagnosticIcon className="h-8 w-8 mr-3" />
+                            ) : item.category === 'Surgical' ? (
+                              <SurgicalIcon className="h-8 w-8 mr-3" />
+                            ) : item.category === 'Supplies' ? (
+                              <SuppliesIcon className="h-8 w-8 mr-3" />
+                            ) : item.category === 'Equipment' ? (
+                              <EquipmentIcon className="h-8 w-8 mr-3" />
+                            ) : (
+                              <Package className="h-8 w-8 text-gray-400 mr-3" />
+                            )}
                             <div>
                               <div className="text-sm font-medium text-gray-900">{item.name}</div>
                             </div>
@@ -314,7 +371,19 @@ export function Inventory() {
                   <div key={item.id} className={`bg-white rounded-lg p-4 shadow-sm border ${isExpired(item.expiryDate) ? 'opacity-60' : ''}`}>
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center">
-                        <Package className="h-8 w-8 text-gray-400 mr-3" />
+                        {item.category === 'Medication' ? (
+                          <MedicationIcon className="h-8 w-8 mr-3" />
+                        ) : item.category === 'Diagnostic' ? (
+                          <DiagnosticIcon className="h-8 w-8 mr-3" />
+                        ) : item.category === 'Surgical' ? (
+                          <SurgicalIcon className="h-8 w-8 mr-3" />
+                        ) : item.category === 'Supplies' ? (
+                          <SuppliesIcon className="h-8 w-8 mr-3" />
+                        ) : item.category === 'Equipment' ? (
+                          <EquipmentIcon className="h-8 w-8 mr-3" />
+                        ) : (
+                          <Package className="h-8 w-8 text-gray-400 mr-3" />
+                        )}
                         <div>
                           <h3 className="font-medium text-gray-900">{item.name}</h3>
                         </div>
@@ -442,7 +511,19 @@ export function Inventory() {
                       <tr key={index} className="hover:bg-purple-100 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
-                            <Package className="h-8 w-8 text-gray-400 mr-3" />
+                            {item.category === 'Medication' ? (
+                              <MedicationIcon className="h-8 w-8 mr-3" />
+                            ) : item.category === 'Diagnostic' ? (
+                              <DiagnosticIcon className="h-8 w-8 mr-3" />
+                            ) : item.category === 'Surgical' ? (
+                              <SurgicalIcon className="h-8 w-8 mr-3" />
+                            ) : item.category === 'Supplies' ? (
+                              <SuppliesIcon className="h-8 w-8 mr-3" />
+                            ) : item.category === 'Equipment' ? (
+                              <EquipmentIcon className="h-8 w-8 mr-3" />
+                            ) : (
+                              <Package className="h-8 w-8 text-gray-400 mr-3" />
+                            )}
                             <div className="text-sm font-medium text-gray-900">{item.itemName}</div>
                           </div>
                         </td>
@@ -459,7 +540,19 @@ export function Inventory() {
                 {filteredAduData.map((item, index) => (
                   <div key={index} className="bg-white rounded-lg p-4 shadow-sm border">
                     <div className="flex items-center mb-3">
-                      <Package className="h-8 w-8 text-gray-400 mr-3" />
+                      {item.category === 'Medication' ? (
+                        <MedicationIcon className="h-8 w-8 mr-3" />
+                      ) : item.category === 'Diagnostic' ? (
+                        <DiagnosticIcon className="h-8 w-8 mr-3" />
+                      ) : item.category === 'Surgical' ? (
+                        <SurgicalIcon className="h-8 w-8 mr-3" />
+                      ) : item.category === 'Supplies' ? (
+                        <SuppliesIcon className="h-8 w-8 mr-3" />
+                      ) : item.category === 'Equipment' ? (
+                        <EquipmentIcon className="h-8 w-8 mr-3" />
+                      ) : (
+                        <Package className="h-8 w-8 text-gray-400 mr-3" />
+                      )}
                       <div>
                         <h3 className="font-medium text-gray-900">{item.itemName}</h3>
                       </div>

@@ -6,7 +6,8 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["Inter var", ...fontFamily.sans],
+        sans: ["Poppins", ...fontFamily.sans],
+        sinkin: ['"Sinkin Sans"', 'sans-serif'],
       },
       borderRadius: {
         DEFAULT: "8px",

@@ -5,6 +5,24 @@ import { PetRecordModal } from '../components/PetRecordModal';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import type { PetRecord } from '../types';
 
+// Cat Icon Component
+const CatIcon = ({ className }: { className?: string }) => (
+  <img
+    src="https://cdn-icons-png.flaticon.com/128/6988/6988878.png"
+    alt="Cat"
+    className={className}
+  />
+);
+
+// Dog Icon Component
+const DogIcon = ({ className }: { className?: string }) => (
+  <img
+    src="https://cdn-icons-png.flaticon.com/128/2171/2171990.png"
+    alt="Dog"
+    className={className}
+  />
+);
+
 export function PetRecords() {
   const { records, deleteRecord } = usePetRecordsStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -53,10 +71,19 @@ export function PetRecords() {
           <div key={record.id} className="bg-white rounded-lg p-6 shadow-sm border">
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center">
-                <Heart className="h-8 w-8 text-purple-600 mr-3" />
+                {record.petType === 'cat' ? (
+                  <CatIcon className="h-8 w-8 mr-3" />
+                ) : record.petType === 'dog' ? (
+                  <DogIcon className="h-8 w-8 mr-3" />
+                ) : (
+                  <Heart className="h-8 w-8 text-purple-600 mr-3" />
+                )}
                 <div>
                   <h3 className="font-semibold text-gray-900">{record.petName}</h3>
                   <p className="text-sm text-gray-600">{record.breed}</p>
+                  {record.petType && (
+                    <p className="text-xs text-gray-500 capitalize mt-1">{record.petType}</p>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-2">
